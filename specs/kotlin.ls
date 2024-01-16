@@ -93,6 +93,14 @@ class Stmt {
 
   grd possible;
 
+  assign ("${assign : AssignStmt}") {
+    this.possible = true;
+
+    assign.symbols_before = this.symbols_before;
+
+    this.symbols_after = assign.symbols_after;
+  }
+
   print ("${print : Print}") {
     this.possible = true;
 
@@ -109,6 +117,27 @@ class Stmt {
     this.symbols_after = (SymbolTable:put this.symbols_before decl.symbol);
   }
 
+}
+
+class AssignStmt {
+
+  inh symbols_before : SymbolTable;
+
+  syn symbols_after : SymbolTable;
+
+  grd valid; 
+
+  assign ("${lhs : UseIdentifier} = ${rhs : Expr};") {
+    lhs.expected_type = (Type:anyType);
+    lhs.symbols_before = this.symbols_before;
+
+    this.valid = (Symbol:getIsMutable lhs.symbol);
+
+    rhs.expected_type = (Symbol:getType lhs.symbol);
+    rhs.symbols_before = this.symbols_before;
+
+    this.symbols_after = (SymbolTable:setIsInitialised this.symbols_before lhs.symbol true);
+  }
 }
 
 class VariableDeclaration {

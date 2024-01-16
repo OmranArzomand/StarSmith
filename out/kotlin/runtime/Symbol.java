@@ -30,6 +30,9 @@ public final class Symbol implements Printable {
     return symbol.isInitialised;
   }
 
+  public static final Boolean getIsMutable(final Symbol symbol) {
+    return symbol.isConst;
+  }
   // -----------------------------------------------------------------------------------------------
 
   public final String name;

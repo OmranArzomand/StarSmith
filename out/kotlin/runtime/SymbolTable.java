@@ -127,6 +127,38 @@ public final class SymbolTable {
     return visibleIdentifiers(symbolTable, null);
   }
 
+  public static final SymbolTable setIsInitialised(final SymbolTable symbolTable,
+      final Symbol symbol, final Boolean isInitialised) {
+    
+    System.out.println(symbolTable);
+    final SymbolTable clone = symbolTable.clone();
+
+
+    final Symbol newSymbol = new Symbol(symbol.name, symbol.type, symbol.isConst, isInitialised);
+
+    final Map<String, Symbol> containingScope = getContainingScope(clone, symbol.name);
+
+    containingScope.remove(symbol.name);
+    containingScope.put(symbol.name, newSymbol);
+    System.out.println("=========");
+    System.out.println(clone);
+    return clone;
+  }
+
+  private static final Map<String, Symbol> getContainingScope(final SymbolTable symbolTable,
+      final String name) {
+    final Iterator<Map<String, Symbol>> scopeIterator = symbolTable.scopes.descendingIterator();
+    while (scopeIterator.hasNext()) {
+      final Map<String, Symbol> scope = scopeIterator.next();
+
+      if (scope.containsKey(name)) {
+        return scope;
+      }
+    }
+
+    return null;
+  }
+
   // -----------------------------------------------------------------------------------------------
 
   public final LinkedList<Map<String, Symbol>> scopes;
