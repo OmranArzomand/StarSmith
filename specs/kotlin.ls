@@ -55,7 +55,7 @@ class OptionalStmtList {
 
 }
 
-@list(50)
+@list(200)
 class StmtList {
 
   inh symbols_before : SymbolTable;
@@ -71,7 +71,7 @@ class StmtList {
     this.symbols_after = stmt.symbols_after;
   }
 
-  @weight(7)
+  @weight(100)
   mult_stmt ("${stmt : Stmt}\n${rest : StmtList}") {
     stmt.symbols_before = this.symbols_before;
     stmt.expected_return_type = this.expected_return_type;
@@ -127,7 +127,7 @@ class AssignStmt {
 
   grd valid; 
 
-  assign ("${lhs : UseIdentifier} = ${rhs : Expr};") {
+  assign ("${lhs : UseIdentifier} = ${rhs : Expr}") {
     lhs.expected_type = (Type:anyType);
     lhs.symbols_before = this.symbols_before;
 
@@ -229,6 +229,18 @@ class AtomicType {
     this.type = (Type:intType);
   }
 
+  boolean_type("Boolean") {
+    this.type = (Type:booleanType);
+  }
+
+  char_type("Char") {
+    this.type = (Type:charType);
+  }
+
+  string_type("String") {
+    this.type = (Type:stringType);
+  }
+
   unit_type("Unit") {
     this.type = (Type:unitType);
   }
@@ -287,7 +299,7 @@ class ReturnStatement {
     this.valid = (Type:is (Type:unitType) this.expected_return_type);
   }
 
-  ret_val ("return ${val : Expr};") {
+  ret_val ("return ${val : Expr}") {
     this.valid = (not (Type:is (Type:unitType) this.expected_return_type));
 
     val.expected_type = this.expected_return_type;
@@ -325,6 +337,27 @@ class ExprAtom {
     this.type = val.type;
   }
 
+  string_literal ("${str: StringLiteral}") {
+    loc type = (Type:stringType);
+    this.valid = (Type:assignable .type this.expected_type);
+
+    this.type = .type;
+  }
+
+  boolean_literal ("${bool: BooleanLiteral}") {
+    loc type = (Type:booleanType);
+    this.valid = (Type:assignable .type this.expected_type);
+
+    this.type = .type;
+  }
+
+  char_literal ("${char: CharLiteral}") {
+    loc type = (Type:charType);
+    this.valid = (Type:assignable .type this.expected_type);
+
+    this.type = .type;
+  }
+
   var ("${name : UseIdentifier}") {  
     name.symbols_before = this.symbols_before;
     name.expected_type = this.expected_type;
@@ -335,6 +368,12 @@ class ExprAtom {
   }
 
 }
+
+class BooleanLiteral("false|true");
+
+class StringLiteral("\"[a-zA-Z0-9]{0,15}\"");
+
+class CharLiteral("\'[a-zA-Z0-9]\'");
 
 class UseIdentifier {
 

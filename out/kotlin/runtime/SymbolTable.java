@@ -130,7 +130,6 @@ public final class SymbolTable {
   public static final SymbolTable setIsInitialised(final SymbolTable symbolTable,
       final Symbol symbol, final Boolean isInitialised) {
     
-    System.out.println(symbolTable);
     final SymbolTable clone = symbolTable.clone();
 
 
@@ -140,8 +139,6 @@ public final class SymbolTable {
 
     containingScope.remove(symbol.name);
     containingScope.put(symbol.name, newSymbol);
-    System.out.println("=========");
-    System.out.println(clone);
     return clone;
   }
 

@@ -33,6 +33,9 @@ public abstract class Type {
   private static final Type ANY_TYPE = new BuiltInType("Any");
   private static final Type INT_TYPE = new BuiltInType("Int");
   private static final Type UNIT_TYPE = new BuiltInType("Unit");
+  private static final Type BOOLEAN_TYPE = new BuiltInType("Boolean");
+  private static final Type CHAR_TYPE = new BuiltInType("Char");
+  private static final Type STRING_TYPE = new BuiltInType("String");
 
   public static final boolean is(Type type1, Type type2) {
     return type1.equals(type2);
@@ -50,6 +53,18 @@ public abstract class Type {
     return INT_TYPE;
   }
 
+  public static final Type charType() {
+    return CHAR_TYPE;
+  }
+
+  public static final Type stringType() {
+    return STRING_TYPE;
+  }
+
+  public static final Type booleanType() {
+    return BOOLEAN_TYPE;
+  }
+
   // ===============================================================================================
 
 
@@ -62,6 +77,12 @@ public abstract class Type {
       return true;
     } else if (INT_TYPE.equals(sourceType)) {
       return INT_TYPE.equals(targetType);
+    } else if (STRING_TYPE.equals(sourceType)) {
+      return STRING_TYPE.equals(targetType);
+    } else if (BOOLEAN_TYPE.equals(sourceType)) {
+      return BOOLEAN_TYPE.equals(targetType);
+    } else if (CHAR_TYPE.equals(sourceType)) {
+      return CHAR_TYPE.equals(targetType);
     } else {
       return false;
     }
