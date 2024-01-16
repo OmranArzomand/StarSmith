@@ -58,10 +58,10 @@ public abstract class Type {
   }
 
   public static final boolean assignable(final Type sourceType, final Type targetType) {
-    if (ANY_TYPE.equals(sourceType)) {
+    if (ANY_TYPE.equals(targetType)) {
       return true;
     } else if (INT_TYPE.equals(sourceType)) {
-      return targetType.equals(targetType);
+      return INT_TYPE.equals(targetType);
     } else {
       return false;
     }
