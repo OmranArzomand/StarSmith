@@ -3,9 +3,136 @@ use SymbolTable;
 use Type;
 
 class Program {
-  prog("${main : MainDeclaration}\n") {
-    main.symbols_before = (SymbolTable:empty);
+  prog("${decls : OptionalGlobalDeclarationList}
+  ${main : MainDeclaration}\n") {
+    decls.symbols_before = (SymbolTable:empty);
+    main.symbols_before = decls.symbols_after;
   }
+}
+
+class OptionalGlobalDeclarationList {
+
+  inh symbols_before : SymbolTable;
+
+  syn symbols_after : SymbolTable;
+  
+  no_decls ("") {
+    this.symbols_after = this.symbols_before;
+  }
+
+  @weight(100)
+  decls ("${decls : GlobalDeclarationList}\n") {
+    decls.symbols_before = this.symbols_before;
+    this.symbols_after = decls.symbols_after;
+  }
+
+}
+
+@list(200)
+class GlobalDeclarationList {
+
+  syn symbols_after : SymbolTable;
+
+  inh symbols_before : SymbolTable;
+
+  @weight(1)
+  one_decl ("${decl : GlobalDeclaration}") {
+    decl.symbols_before = this.symbols_before;
+    this.symbols_after = decl.symbols_after;
+  }
+
+  @weight(10)
+  mult_decl ("${decl : GlobalDeclaration}\n
+              ${rest : GlobalDeclarationList}") {
+    decl.symbols_before = this.symbols_before;
+
+    rest.symbols_before = decl.symbols_after;
+
+    this.symbols_after = rest.symbols_after;
+  }
+
+}
+
+class GlobalDeclaration {
+
+  syn symbols_after : SymbolTable;
+
+  inh symbols_before : SymbolTable;
+
+  @weight(2)
+  global_func_decl ("${func_decl : FunctionDeclaration}") {
+    func_decl.symbols_before = this.symbols_before;
+    this.symbols_after = (SymbolTable:put this.symbols_before func_decl.symbol);
+  }
+
+}
+
+class FunctionDeclaration {
+
+  syn symbol : Symbol;
+
+  inh symbols_before : SymbolTable;
+
+  func_decl_expr
+      ("fun ${name : DefIdentifier}(${params : ParameterDeclarationList})${ret_type : OptionalTypeAnnotation} = ${expr: Expr}") {
+      
+    params.symbols_before = (SymbolTable:enterScope this.symbols_before);
+    expr.symbols_before = params.symbols_after;
+    expr.expected_type = (if ret_type.has_type ret_type.type (Type:anyType));
+    name.symbols_before = this.symbols_before;
+    this.symbol = (Symbol:create name.name (Type:createFunctionType (if ret_type.has_type ret_type.type expr.type) params.type) false true);
+  }
+
+  func_decl
+      ("fun ${name : DefIdentifier}(${params : ParameterDeclarationList})${ret_type : OptionalTypeAnnotation} {\+
+          ${body : FunctionBody}\-
+        }\n") {
+    loc actual_ret_type = (if ret_type.has_type ret_type.type (Type:unitType));
+    params.symbols_before = (SymbolTable:enterScope this.symbols_before);
+    body.symbols_before = params.symbols_after;
+    body.expected_return_type = .actual_ret_type;
+    name.symbols_before = this.symbols_before;
+    this.symbol = (Symbol:create name.name (Type:createFunctionType .actual_ret_type params.type) false true);
+  }
+
+}
+
+@list(10)
+class ParameterDeclarationList {
+
+  syn type : Type;
+  syn symbols_after : SymbolTable;
+
+  inh symbols_before : SymbolTable;
+
+  one_param ("${param : ParameterDeclaration}") {
+    param.symbols_before = this.symbols_before;
+    this.symbols_after = (SymbolTable:put this.symbols_before param.symbol);
+    this.type = (Type:createTupleType (Symbol:getType param.symbol));
+  }
+
+  mult_param ("${param : ParameterDeclaration}, ${rest : ParameterDeclarationList}") {
+    param.symbols_before = this.symbols_before;
+    rest.symbols_before = (SymbolTable:put this.symbols_before param.symbol);
+    this.symbols_after = rest.symbols_after;
+    this.type =
+      (Type:mergeTupleTypes (Type:createTupleType (Symbol:getType param.symbol)) rest.type);
+  }
+
+}
+
+class ParameterDeclaration {
+
+  syn symbol : Symbol;
+
+  inh symbols_before : SymbolTable;
+
+  @copy
+  param_decl ("${name : DefIdentifier}: ${type : Type}") {
+    name.symbols_before = this.symbols_before;
+    this.symbol = (Symbol:create name.name type.type false true);
+  }
+
 }
 
 class MainDeclaration {
@@ -93,6 +220,15 @@ class Stmt {
 
   grd possible;
 
+  call ("${call : Call}") {
+    this.possible = true;
+
+    call.expected_type = (Type:anyType);
+    call.symbols_before = this.symbols_before;
+
+    this.symbols_after = this.symbols_before;
+  }
+
   assign ("${assign : AssignStmt}") {
     this.possible = true;
 
@@ -115,6 +251,80 @@ class Stmt {
     decl.symbols_before = this.symbols_before;
 
     this.symbols_after = (SymbolTable:put this.symbols_before decl.symbol);
+  }
+
+}
+
+class Call {
+
+  inh symbols_before : SymbolTable;
+  inh expected_type : Type;
+
+  syn type : Type;
+
+  call ("${callee : Callee}(${args : ArgumentList})") {
+    loc callee_type = (Symbol:getType callee.symbol);
+
+    args.expected_type = (Type:getParameterType .callee_type);
+    args.symbols_before = this.symbols_before;
+
+    callee.symbols_before = this.symbols_before;
+    callee.expected_return_type = this.expected_type;
+
+    this.type = (Type:getReturnType .callee_type);
+  }
+
+}
+
+@list
+class ArgumentList {
+
+  inh symbols_before : SymbolTable;
+  inh expected_type : Type;
+
+  grd valid;
+
+  one_arg ("${val : Expr}") {
+    val.expected_type = (Type:getTupleTypeHead this.expected_type);
+    val.symbols_before = this.symbols_before;
+
+    this.valid = (== (Type:getTupleTypeSize this.expected_type) 1);
+  }
+
+  mult_arg ("${val : Expr}, ${rest : ArgumentList}") {
+    val.expected_type = (Type:getTupleTypeHead this.expected_type);
+    val.symbols_before = this.symbols_before;
+    rest.expected_type = (Type:getTupleTypeTail this.expected_type);
+    rest.symbols_before = this.symbols_before;
+
+    this.valid = (> (Type:getTupleTypeSize this.expected_type) 1);
+  }
+
+}
+
+class Callee {
+
+  inh symbols_before : SymbolTable;
+  inh expected_return_type : Type;
+
+  syn symbol : Symbol;
+
+  grd valid;
+  grd type_matches;
+
+  @copy
+  callee ("${func : UseIdentifier}") {
+    loc func_type = (Symbol:getType func.symbol);
+
+    func.expected_type = nil;
+    func.symbols_before = this.symbols_before;
+
+    this.symbol = func.symbol;
+
+    this.valid = (Type:isFunctionType .func_type);
+
+    this.type_matches =
+      (Type:assignable (Type:getReturnType .func_type) this.expected_return_type);
   }
 
 }
@@ -330,6 +540,14 @@ class ExprAtom {
 
   syn type : Type;
 
+  call ("${call : Call}") {
+    this.valid = true;
+    call.expected_type = this.expected_type;
+    call.symbols_before = this.symbols_before;
+
+    this.type = call.type;
+  }
+
   num ("${val : Number}") {
     this.valid = true;
 
@@ -359,12 +577,13 @@ class ExprAtom {
   }
 
   var ("${name : UseIdentifier}") {  
+    loc type = (Symbol:getType name.symbol);
     name.symbols_before = this.symbols_before;
     name.expected_type = this.expected_type;
 
-    this.type = (Symbol:getType name.symbol);
+    this.type = .type;
 
-    this.valid = (Symbol:getIsInitialised name.symbol);
+    this.valid = (and (Symbol:getIsInitialised name.symbol) (not (Type:isFunctionType .type)));
   }
 
 }
