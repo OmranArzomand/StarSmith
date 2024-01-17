@@ -524,13 +524,92 @@ class Expr {
 
   syn type : Type;
 
+  grd valid;
+  grd valid2;
+
+  @weight(10)
   atom ("${atom : ExprAtom}") {
+    this.valid = true;
+    this.valid2 = true;
+
     atom.symbols_before = this.symbols_before;
     atom.expected_type = this.expected_type;
 
     this.type = atom.type;
   }
+
+  arith_bin_op ("(${lhs : Expr}) ${op : ArithBinaryOperator} (${rhs : Expr})") {
+    this.valid2 = true;
+
+    lhs.symbols_before = this.symbols_before;
+    lhs.expected_type = (Type:intType);
+
+    rhs.symbols_before = this.symbols_before;
+    rhs.expected_type = (Type:intType);
+
+    this.valid = (Type:assignable (Type:intType) this.expected_type);
+    this.type = (Type:intType);
+  }
+
+  bool_bin_op ("(${lhs : Expr}) ${op : BoolBinaryOperator} (${rhs : Expr})") {
+    this.valid2 = true;
+
+    lhs.symbols_before = this.symbols_before;
+    lhs.expected_type = (Type:booleanType);
+
+    rhs.symbols_before = this.symbols_before;
+    rhs.expected_type = (Type:booleanType);
+
+    this.valid = (Type:assignable (Type:booleanType) this.expected_type);
+    this.type = (Type:booleanType);
+  }
+
+  bool_unary_op ("${op: BoolUnaryOperator}(${exp: Expr})") {
+    this.valid2 = true;
+
+    exp.symbols_before = this.symbols_before;
+    exp.expected_type = (Type:booleanType);
+
+    this.valid = (Type:assignable (Type:booleanType) this.expected_type);
+    this.type = (Type:booleanType);
+  }
+
+  equality_bin_op ("(${lhs : Expr}) ${op : EqualityOp} (${rhs : Expr})") {
+    this.valid2 = true;
+
+    lhs.symbols_before = this.symbols_before;
+    lhs.expected_type = (Type:anyType);
+
+    rhs.symbols_before = this.symbols_before;
+    rhs.expected_type = lhs.type;
+
+    this.valid = (Type:assignable (Type:booleanType) this.expected_type);
+    this.type = (Type:booleanType);
+  }
+
+  comparison_bin_op ("(${lhs: Expr}) ${op : ComparisonOp} (${rhs : Expr})") {
+    lhs.symbols_before = this.symbols_before;
+    lhs.expected_type = (Type:anyType);
+    
+    this.valid2 = (not (Type:is lhs.type (Type:anyType)));
+
+    rhs.symbols_before = this.symbols_before;
+    rhs.expected_type = lhs.type;
+
+    this.valid = (Type:assignable (Type:booleanType) this.expected_type);
+    this.type = (Type:booleanType);
+  }
 }
+
+class ArithBinaryOperator("+|-|*|/|%");
+
+class BoolBinaryOperator("&&|[|][|]");
+
+class BoolUnaryOperator("!");
+
+class EqualityOp("==|!=");
+
+class ComparisonOp(">|>=|<|<=");
 
 class ExprAtom {
   inh symbols_before : SymbolTable;
