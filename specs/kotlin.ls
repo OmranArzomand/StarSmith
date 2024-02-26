@@ -253,6 +253,72 @@ class Stmt {
     this.symbols_after = (SymbolTable:put this.symbols_before decl.symbol);
   }
 
+  @weight(4)
+  if_then ("if (${cond : Condition}) {\+${then : StmtList}\-}") {
+    this.possible = true;
+
+    cond.symbols_before = this.symbols_before;
+    then.symbols_before = this.symbols_before;
+    then.expected_return_type = this.expected_return_type;
+
+    this.symbols_after = this.symbols_before;
+  }
+
+  @weight(4)
+  if_then_else ("if (${cond : Condition}) {\+${then : StmtList}\-} else {\+${else : OptionalStmtList}\-}") {
+    this.possible = true;
+
+    cond.symbols_before = this.symbols_before;
+    then.symbols_before = this.symbols_before;
+    then.expected_return_type = this.expected_return_type;
+    else.symbols_before = this.symbols_before;
+    else.expected_return_type = this.expected_return_type;
+
+    this.symbols_after = this.symbols_before;
+  }
+
+  @weight(4)
+  while ("while (${cond : Condition}) {\+${body : StmtList}\-}") {
+    this.possible = true;
+
+    cond.symbols_before = this.symbols_before;
+    body.symbols_before = this.symbols_before;
+    body.expected_return_type = this.expected_return_type;
+
+    this.symbols_after = this.symbols_before;
+  }
+
+  @weight(30)
+  for ("for (${var : DefIdentifier}: Int in ${lo : Expr}..${hi : Expr}) {\+${body : StmtList}\-}") {
+    loc var_symbol = (Symbol:create var.name (Type:intType) false true);
+    this.possible = true;
+
+    var.symbols_before = this.symbols_before;
+
+
+    lo.symbols_before = this.symbols_before;
+    lo.expected_type = (Type:intType);
+
+    hi.symbols_before = this.symbols_before;
+    hi.expected_type = (Type:intType);
+
+    body.symbols_before = (SymbolTable:put this.symbols_before .var_symbol);
+    body.expected_return_type = this.expected_return_type;
+
+    this.symbols_after = this.symbols_before;
+  }
+
+}
+
+class Condition {
+
+  inh symbols_before : SymbolTable;
+
+  cond_expr ("${expr : Expr}") {
+    expr.symbols_before = this.symbols_before;
+    expr.expected_type = (Type:booleanType);
+  }
+
 }
 
 class Call {
@@ -335,7 +401,7 @@ class AssignStmt {
 
   syn symbols_after : SymbolTable;
 
-  grd valid; 
+  grd valid;
 
   assign ("${lhs : UseIdentifier} = ${rhs : Expr}") {
     lhs.expected_type = (Type:anyType);
@@ -353,7 +419,7 @@ class AssignStmt {
 class VariableDeclaration {
 
   grd valid;
-  
+
   syn symbol : Symbol;
 
   inh symbols_before : SymbolTable;
@@ -361,7 +427,7 @@ class VariableDeclaration {
   var_decl ("${mod: VariableModifier} ${name : DefIdentifier}${type : OptionalTypeAnnotation} ${init : OptionalVariableInitialiation}") {
     init.symbols_before = this.symbols_before;
     init.expected_type = type.type;
-    
+
     name.symbols_before = this.symbols_before;
 
     this.valid = (or type.has_type init.isInitialised);
@@ -391,7 +457,7 @@ class Identifier("[a-z][a-zA-Z_]{1,7}");
 class OptionalVariableInitialiation {
   inh expected_type : Type;
   inh symbols_before : SymbolTable;
-  
+
   syn isInitialised : boolean;
   syn type : Type;
 
@@ -537,7 +603,21 @@ class Expr {
 
     this.type = atom.type;
   }
+  if ("(if (${if : Expr}) (${then : Expr}) else (${else: Expr}))") {
+    this.valid = true;
+    this.valid2 = true;
 
+    if.symbols_before = this.symbols_before;
+    if.expected_type = (Type:booleanType);
+
+    then.symbols_before = this.symbols_before;
+    then.expected_type = this.expected_type;
+
+    else.symbols_before = this.symbols_before;
+    else.expected_type = then.type;
+
+    this.type = then.type;
+  }
   arith_bin_op ("(${lhs : Expr}) ${op : ArithBinaryOperator} (${rhs : Expr})") {
     this.valid2 = true;
 

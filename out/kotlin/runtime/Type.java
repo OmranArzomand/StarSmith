@@ -101,6 +101,14 @@ public abstract class Type {
     }
   }
 
+  public static final Type leastUpperBound(final Type type1, final Type type2) {
+    if (type1.equals(type2)) {
+      return type1;
+    } else {
+      return ANY_TYPE;
+    }
+  }
+
   // ===============================================================================================
 
 
