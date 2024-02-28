@@ -10,8 +10,15 @@ import java.util.Map;
 
 public final class SymbolTable {
 
-  public static final SymbolTable empty() {
-    return new SymbolTable(true);
+  public static final SymbolTable init() {
+    SymbolTable symbolTable = new SymbolTable(true);
+    symbolTable.put(new IntType(IntType.name()));
+    symbolTable.put(new AnyType(AnyType.name()));
+    symbolTable.put(new UnitType(UnitType.name()));
+    symbolTable.put(new BooleanType(BooleanType.name()));
+    symbolTable.put(new StringType(StringType.name()));
+    symbolTable.put(new CharType(CharType.name()));
+    return symbolTable;
   }
 
   public static final SymbolTable put(final SymbolTable symbolTable, final Symbol symbol) {
@@ -66,6 +73,19 @@ public final class SymbolTable {
     throw new RuntimeException("name not defined");
   }
 
+  public static final Type getAsType(final SymbolTable symbolTable, final String name) {
+    final Iterator<Map<String, Symbol>> scopeIterator = symbolTable.scopes.descendingIterator();
+    while (scopeIterator.hasNext()) {
+      final Map<String, Symbol> scope = scopeIterator.next();
+
+      if (scope.containsKey(name)) {
+        return (Type) scope.get(name);
+      }
+    }
+
+    throw new RuntimeException("name not defined");
+  }
+
   public static final boolean contains(final SymbolTable symbolTable, final String name) {
     final Iterator<Map<String, Symbol>> scopeIterator = symbolTable.scopes.descendingIterator();
     while (scopeIterator.hasNext()) {
@@ -91,54 +111,84 @@ public final class SymbolTable {
     return flattened;
   }
 
-  public static final List<Symbol> visibleSymbols(final SymbolTable symbolTable,
+  public static final List<Variable> visibleVariables(final SymbolTable symbolTable,
       final Type expectedType) {
-    final List<Symbol> visibleSymbols = new LinkedList<>();
+    final List<Variable> visibleVariables = new LinkedList<>();
 
     final LinkedHashMap<String, Symbol> flattened = flatten(symbolTable);
     for (final Symbol symbol : flattened.values()) {
-      if (expectedType == null || Type.assignable(symbol.type, expectedType)) {
-        visibleSymbols.add(symbol);
+      if (!(symbol instanceof Variable)) {
+        continue;
+      }
+      Variable variable = (Variable) symbol;
+      if (expectedType == null || Type.assignable(variable.type, expectedType)) {
+        visibleVariables.add(variable);
       }
     }
 
-    return visibleSymbols;
+    return visibleVariables;
   }
 
-  public static final List<Symbol> visibleSymbols(final SymbolTable symbolTable) {
-    return visibleSymbols(symbolTable, null);
+  public static final List<Variable> visibleVariables(final SymbolTable symbolTable) {
+    return visibleVariables(symbolTable, null);
   }
 
-  public static final List<String> visibleIdentifiers(final SymbolTable symbolTable,
+  public static final List<String> visibleVariableNames(final SymbolTable symbolTable,
       final Type expectedType) {
-    final List<String> visibleIdentifiers = new LinkedList<>();
+    final List<String> visibleVariableNames = new LinkedList<>();
 
     final LinkedHashMap<String, Symbol> flattened = flatten(symbolTable);
     for (final Symbol symbol : flattened.values()) {
-      if (expectedType == null || Type.assignable(symbol.type, expectedType)) {
-        visibleIdentifiers.add(symbol.name);
+      if (!(symbol instanceof Variable)) {
+        continue;
+      }
+      Variable variable = (Variable) symbol;
+      if (expectedType == null || Type.assignable(variable.type, expectedType)) {
+        visibleVariableNames.add(variable.name);
       }
     }
 
-    return visibleIdentifiers;
+    return visibleVariableNames;
   }
 
-  public static final List<String> visibleIdentifiers(final SymbolTable symbolTable) {
-    return visibleIdentifiers(symbolTable, null);
+  public static final List<String> visibleVariableNames(final SymbolTable symbolTable) {
+    return visibleVariableNames(symbolTable, null);
+  }
+
+  public static final List<String> visibleFunctionNames(final SymbolTable symbolTable,
+      final Type expectedReturnType) {
+    final List<String> visibleFunctioneNames = new LinkedList<>();
+
+    final LinkedHashMap<String, Symbol> flattened = flatten(symbolTable);
+    for (final Symbol symbol : flattened.values()) {
+      if (!(symbol instanceof Function)) {
+        continue;
+      }
+      Function function = (Function) symbol;
+      if (expectedReturnType == null || Type.assignable(function.returnType, expectedReturnType)) {
+        visibleFunctioneNames.add(function.name);
+      }
+    }
+
+    return visibleFunctioneNames;
+  }
+
+  public static final List<String> visibleFunctionNames(final SymbolTable symbolTable) {
+    return visibleFunctionNames(symbolTable, null);
   }
 
   public static final SymbolTable setIsInitialised(final SymbolTable symbolTable,
-      final Symbol symbol, final Boolean isInitialised) {
+      final Variable variable, final Boolean isInitialised) {
     
     final SymbolTable clone = symbolTable.clone();
 
 
-    final Symbol newSymbol = new Symbol(symbol.name, symbol.type, symbol.isConst, isInitialised);
+    final Variable newVariable = new Variable(variable.name, variable.type, variable.isMutable, variable.isInitialised);
 
-    final Map<String, Symbol> containingScope = getContainingScope(clone, symbol.name);
+    final Map<String, Symbol> containingScope = getContainingScope(clone, variable.name);
 
-    containingScope.remove(symbol.name);
-    containingScope.put(symbol.name, newSymbol);
+    containingScope.remove(variable.name);
+    containingScope.put(variable.name, newVariable);
     return clone;
   }
 
