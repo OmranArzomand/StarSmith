@@ -10,6 +10,14 @@ public class AnyType extends Type implements Printable {
     super(name);
   }
 
+  public AnyType clone() {
+    return new AnyType(name);
+  }
+
+  public static AnyType create() {
+    return new AnyType("Any");
+  }
+
   public static String name() {
     return "Any";
   }

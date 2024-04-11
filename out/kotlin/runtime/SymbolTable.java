@@ -12,12 +12,15 @@ public final class SymbolTable {
 
   public static final SymbolTable init() {
     SymbolTable symbolTable = new SymbolTable(true);
-    symbolTable.put(new IntType(IntType.name()));
+    IntType intType = new IntType(IntType.name());
+    symbolTable.put(intType);
     symbolTable.put(new AnyType(AnyType.name()));
     symbolTable.put(new UnitType(UnitType.name()));
     symbolTable.put(new BooleanType(BooleanType.name()));
     symbolTable.put(new StringType(StringType.name()));
     symbolTable.put(new CharType(CharType.name()));
+    symbolTable.put(new Function("maxOf", intType, new CustomList<Variable>(
+      new Variable("x", intType, true, false), new Variable("y", intType, true, false))));
     return symbolTable;
   }
 
@@ -175,6 +178,19 @@ public final class SymbolTable {
 
   public static final List<String> visibleFunctionNames(final SymbolTable symbolTable) {
     return visibleFunctionNames(symbolTable, null);
+  }
+
+  public static final List<String> visibleMethodNames(final SymbolTable symbolTable,
+      final Type calleeType, final Type expectedReturnType) {
+    final List<String> visibleMethodNames = new ArrayList<>();
+
+    for (Map.Entry<String, Function> entry : calleeType.methods.entrySet()) {
+      if (Type.assignable(entry.getValue().returnType, expectedReturnType)) {
+        visibleMethodNames.add(entry.getKey());
+      }
+    }
+
+    return visibleMethodNames;
   }
 
   public static final SymbolTable setIsInitialised(final SymbolTable symbolTable,

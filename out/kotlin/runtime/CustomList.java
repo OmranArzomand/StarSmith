@@ -10,9 +10,15 @@ import java.util.List;
 public class CustomList<T> implements Printable {
 	public final List<T> items;
 
-  public CustomList(T item) {
+  public CustomList(List<T> list) {
+    this.items = list;
+  }
+
+  public CustomList(T... items) {
     this.items = new ArrayList<>();
-    this.items.add(item);
+    for (T item : items) {
+      this.items.add(item);
+    }
   }
 
   public CustomList() {

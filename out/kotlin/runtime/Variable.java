@@ -33,17 +33,22 @@ public class Variable extends Symbol implements Printable {
   }
 
   @Override
+  public Variable clone() {
+    return new Variable(name, type.clone(), isInitialised, isMutable);
+  }
+
+  @Override
   public boolean equals(Object obj) {
     if (!(obj instanceof Variable)) {
       return false;
     }
 
-    final Variable otherFunctionType = (Variable) obj;
+    final Variable otherVariable = (Variable) obj;
 
-    return Objects.equals(this.name, otherFunctionType.name)
-      && Objects.equals(this.type, otherFunctionType.type)
-      && Objects.equals(this.isInitialised, otherFunctionType.isInitialised)
-      && Objects.equals(this.isMutable, otherFunctionType.isMutable);
+    return Objects.equals(this.name, otherVariable.name)
+      && Objects.equals(this.type, otherVariable.type)
+      && Objects.equals(this.isInitialised, otherVariable.isInitialised)
+      && Objects.equals(this.isMutable, otherVariable.isMutable);
   }
 
   @Override

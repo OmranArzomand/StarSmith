@@ -2,6 +2,8 @@ package runtime;
 
 import i2.act.fuzzer.runtime.Printable;
 import java.util.Objects;
+import java.util.List;
+import java.util.ArrayList;
 
 public class Function extends Symbol implements Printable {
 
@@ -12,6 +14,15 @@ public class Function extends Symbol implements Printable {
     super(name);
     this.returnType = returnType;
     this.params = params;
+  }
+
+  @Override
+  public Function clone() {
+    List<Variable> paramClones = new ArrayList<>();
+    for (Variable param : params.items) {
+      paramClones.add(param);
+    }
+    return new Function(name, returnType.clone(), new CustomList<>(paramClones));
   }
 
   public static Function create(String name, Type returnType, CustomList<Variable> params) {

@@ -240,6 +240,15 @@ class Stmt {
     this.symbols_after = this.symbols_before;
   }
 
+  method_call ("${method_call : MethodCall}") {
+    this.possible = true;
+    
+    method_call.symbols_before = this.symbols_before;
+    method_call.expected_type = (SymbolTable:getAsType this.symbols_before (AnyType:name));
+
+    this.symbols_after = this.symbols_before;
+  }
+
   assign ("${assign : AssignStmt}") {
     this.possible = true;
 
@@ -264,6 +273,30 @@ class Stmt {
     this.symbols_after = (SymbolTable:put this.symbols_before decl.symbol);
   }
 
+}
+
+class MethodCall {
+  inh symbols_before : SymbolTable;
+  inh expected_type : Type;
+
+  syn type : Type;
+
+  method_call("${expr : Expr}.${method_callee : MethodCallee}(${args : ArgumentList})") {
+    loc functionSymbol = method_callee.symbol;
+
+    expr.symbols_before = this.symbols_before;
+    expr.expected_type = this.expected_type;
+
+    args.expected_params = (Function:getParams .functionSymbol);
+    args.symbols_before = this.symbols_before;
+
+    method_callee.symbols_before = this.symbols_before;
+    method_callee.expected_return_type = this.expected_type;
+    method_callee.callee_type = (SymbolTable:getAsType this.symbols_before (Symbol:getName expr.type));
+
+    this.type = (Function:getReturnType .functionSymbol);
+
+  }
 }
 
 class Call {
@@ -313,6 +346,23 @@ class ArgumentList {
 
 }
 
+class MethodCallee {
+  inh symbols_before : SymbolTable;
+  inh expected_return_type : Type;
+  inh callee_type : Type;
+
+  syn symbol : Function;
+
+  callee ("${method : UseMethodIdentifier}") {
+    method.expected_return_type = this.expected_return_type;
+    method.callee_type = this.callee_type;
+    method.symbols_before = this.symbols_before;
+
+    this.symbol = method.symbol;
+
+  }
+}
+
 class Callee {
 
   inh symbols_before : SymbolTable;
@@ -321,10 +371,7 @@ class Callee {
   syn symbol : Function;
 
 
-  @copy
   callee ("${func : UseFunctionIdentifier}") {
-    loc func_type = (Symbol:getType func.symbol);
-
     func.expected_return_type = this.expected_return_type;
     func.symbols_before = this.symbols_before;
 
@@ -551,6 +598,16 @@ class Expr {
     this.type = atom.type;
   }
 
+  method_call ("${method_call : MethodCall}") {
+    this.valid = true;
+    this.valid2 = true;
+
+    method_call.symbols_before = this.symbols_before;
+    method_call.expected_type = this.expected_type;
+
+    this.type = method_call.type;
+  }
+
   arith_bin_op ("(${lhs : Expr}) ${op : ArithBinaryOperator} (${rhs : Expr})") {
     loc int_type = (SymbolTable:getAsType this.symbols_before (IntType:name));
     this.valid2 = true;
@@ -607,7 +664,7 @@ class Expr {
     lhs.symbols_before = this.symbols_before;
     lhs.expected_type = (SymbolTable:getAsType this.symbols_before (AnyType:name));
     
-    this.valid2 = true;
+    this.valid2 = (not (Type:is lhs.type (SymbolTable:getAsType this.symbols_before (AnyType:name))));
 
     rhs.symbols_before = this.symbols_before;
     rhs.expected_type = lhs.type;
@@ -712,6 +769,20 @@ class UseFunctionIdentifier {
 
   use_id (SymbolTable:visibleFunctionNames this.symbols_before this.expected_return_type) : String {
     this.symbol = (Symbol:asFunction (SymbolTable:get this.symbols_before $));
+  }
+
+}
+
+class UseMethodIdentifier {
+
+  inh symbols_before : SymbolTable;
+  inh expected_return_type : Type;
+  inh callee_type : Type;
+
+  syn symbol : Function;
+
+  use_id (SymbolTable:visibleMethodNames this.symbols_before this.callee_type this.expected_return_type) : String {
+    this.symbol = (Type:getMethod this.callee_type $);
   }
 
 }

@@ -10,6 +10,14 @@ public class UnitType extends Type implements Printable {
     super(name);
   }
 
+  public UnitType clone() {
+    return new UnitType(name);
+  }
+
+  public static UnitType create() {
+    return new UnitType("Unit");
+  }
+
   public static String name() {
     return "Unit";
   }

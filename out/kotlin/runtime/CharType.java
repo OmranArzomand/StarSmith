@@ -10,6 +10,14 @@ public class CharType extends Type implements Printable {
     super(name);
   }
 
+  public CharType clone() {
+    return new CharType(name);
+  }
+
+  public static CharType create() {
+    return new CharType("Char");
+  }
+
   public static String name() {
     return "Char";
   }

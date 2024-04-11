@@ -10,6 +10,14 @@ public class BooleanType extends Type implements Printable {
     super(name);
   }
 
+  public BooleanType clone() {
+    return new BooleanType(name);
+  }
+
+  public static BooleanType create() {
+    return new BooleanType("Boolean");
+  }
+
   public static String name() {
     return "Boolean";
   }

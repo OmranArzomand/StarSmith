@@ -10,6 +10,14 @@ public class StringType extends Type implements Printable {
       super(name);
   }
 
+  public StringType clone() {
+    return new StringType(name);
+  }
+
+  public static StringType create() {
+    return new StringType("StringType");
+  }
+
   public static String name() {
     return "String";
   }

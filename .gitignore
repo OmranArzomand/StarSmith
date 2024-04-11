@@ -6,11 +6,14 @@ build/*
 
 .idea/
 
+out/**/output
 out/**/*.class
 out/*/*.java
 out/**/evaluation/test_*/
 out/**/evaluation/run_*/
 out/**/evaluation/core
 out/sql/evaluation/.venv/
+
+bin/*
 
 examples/

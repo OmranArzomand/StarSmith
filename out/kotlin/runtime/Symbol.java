@@ -15,6 +15,10 @@ public class Symbol implements Printable {
     this.name = name;
   }
 
+  public Symbol clone() {
+    return new Symbol(name);
+  }
+
   public static final String getName(final Symbol symbol) {
     return symbol.name;
   }
