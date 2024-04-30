@@ -8,7 +8,7 @@ public class IntType extends Type implements Printable {
 
   public IntType(String name) {
       super(name);
-      methods.put("plus", new Function("plus", this, new CustomList<Variable>(new Variable("x", this, true, false))));
+      memberFunctions.put("plus", new Function("plus", this, new CustomList<Variable>(new Variable("x", this, true, false))));
   }
 
   public IntType clone() {

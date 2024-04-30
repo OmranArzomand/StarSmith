@@ -3,14 +3,33 @@ package runtime;
 import i2.act.fuzzer.runtime.Printable;
 import java.util.Map;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Objects;
+import java.util.ArrayList;
+
+import javax.lang.model.element.VariableElement;
 
 public class Type extends Symbol implements Printable{
-  public final Map<String, Function> methods;
+  public final Map<String, Function> memberFunctions;
+  public final CustomList<CustomList<Variable>> constructors;
+  public final CustomList<Variable> properties;
 
   public Type(String name) {
     super(name);
-    methods = new HashMap();
+    this.memberFunctions = new HashMap();
+    this.constructors = CustomList.empty();
+    this.properties = CustomList.empty();
+  }
+
+  public Type(String name, CustomList<CustomList<Variable>> constructors, CustomList<Variable> properties,
+      CustomList<Function> memberFunctions) {
+    super(name);
+    this.memberFunctions = new HashMap();
+    for (Function func : memberFunctions.items) {
+      this.memberFunctions.put(func.name, func);
+    }
+    this.constructors = constructors;
+    this.properties = properties;
   }
 
   @Override
@@ -19,6 +38,9 @@ public class Type extends Symbol implements Printable{
   }
 
   public static final boolean assignable(final Type sourceType, final Type targetType) {
+    if (targetType.getClass() == Type.class) {
+      return sourceType.name.equals(targetType.name);
+    }
     if (targetType instanceof AnyType) {
       return true;
     } else if (sourceType instanceof IntType) {
@@ -42,8 +64,36 @@ public class Type extends Symbol implements Printable{
     return type1.getClass().equals(type2.getClass());
   }
 
-  public static Function getMethod(Type type, String methodName) {
-    return type.methods.get(methodName);
+  public static Function getMemberFunction(Type type, String functionName) {
+    return type.memberFunctions.get(functionName);
+  }
+
+  public static Type create(String name) {
+    return new Type(name);
+  }
+
+  public static Type create(String name, CustomList<CustomList<Variable>> constructors,
+    CustomList<Variable> properties, CustomList<Function> memberFunctions) {
+    return new Type(name, constructors, properties, memberFunctions);
+  }
+
+  public static List<String> visiblePropertyNames(Type classType, Type expectedType) {
+    List<String> propertyNames = new ArrayList<>();
+    for (Variable property : classType.properties.items) {
+      if (Type.assignable(property.type, expectedType)){
+        propertyNames.add(property.name);
+      }
+    }
+    return propertyNames;
+  }
+
+  public static Variable getProperty(Type classType, String name) {
+    for (Variable property : classType.properties.items) {
+      if (property.name.equals(name)){
+        return property;
+      }
+    }
+    throw new RuntimeException("Property doesn't exist in class");
   }
 
   @Override
@@ -55,12 +105,12 @@ public class Type extends Symbol implements Printable{
     final Type otherType = (Type) obj;
 
     return Objects.equals(this.name, otherType.name)
-      && Objects.equals(this.methods, otherType.methods);
+      && Objects.equals(this.memberFunctions, otherType.memberFunctions);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(this.name, this.methods);
+    return Objects.hash(this.name, this.memberFunctions);
   }
 
   @Override

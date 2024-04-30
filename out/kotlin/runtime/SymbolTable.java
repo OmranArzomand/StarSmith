@@ -24,10 +24,13 @@ public final class SymbolTable {
     return symbolTable;
   }
 
-  public static final SymbolTable put(final SymbolTable symbolTable, final Symbol symbol) {
+  public static final SymbolTable put(final SymbolTable symbolTable, final Symbol... symbols) {
     final SymbolTable clone = symbolTable.clone();
 
-    clone.put(symbol);
+    for (Symbol symbol : symbols) {
+      clone.put(symbol);
+    }
+    
 
     return clone;
   }
@@ -114,6 +117,20 @@ public final class SymbolTable {
     return flattened;
   }
 
+  public static final List<String> visibleTypeNames(final SymbolTable symbolTable) {
+    final List<String> visibleTypeNames = new LinkedList<>();
+
+    final LinkedHashMap<String, Symbol> flattened = flatten(symbolTable);
+    for (final Symbol symbol : flattened.values()) {
+      if (!(symbol instanceof Type)) {
+        continue;
+      }
+      Type type = (Type) symbol;
+      visibleTypeNames.add(type.name);
+    }
+    return visibleTypeNames;
+  }
+
   public static final List<Variable> visibleVariables(final SymbolTable symbolTable,
       final Type expectedType) {
     final List<Variable> visibleVariables = new LinkedList<>();
@@ -158,21 +175,71 @@ public final class SymbolTable {
     return visibleVariableNames(symbolTable, null);
   }
 
+  public static final Type getClassWithPropertyAndType(final SymbolTable symbolTable,
+      final String propertyName, final Type propertyType) {
+
+    final LinkedHashMap<String, Symbol> flattened = flatten(symbolTable);
+    for (final Symbol symbol : flattened.values()) {
+      if (!(symbol instanceof Type)) {
+        continue;
+      }
+      Type type = (Type) symbol;
+      for (Variable property : type.properties.items) {
+        if (property.name.equals(propertyName) && Type.assignable(property.type, propertyType)) {
+          return type;
+        }
+      }
+    }
+    throw new RuntimeException("No class exists with property given property name");
+  }
+
+  public static final List<String> visiblePropertyNames(final SymbolTable symbolTable,
+      final Type expectedType) {
+    final List<String> visiblePropertyNames = new LinkedList<>();
+
+    final LinkedHashMap<String, Symbol> flattened = flatten(symbolTable);
+    for (final Symbol symbol : flattened.values()) {
+      if (!(symbol instanceof Type)) {
+        continue;
+      }
+      Type type = (Type) symbol;
+      for (Variable property : type.properties.items) {
+        if (expectedType == null || Type.assignable(property.type, expectedType)) {
+          visiblePropertyNames.add(property.name);
+        }
+      }
+    }
+    return visiblePropertyNames;
+  }
+
+  public static final List<String> visiblePropertyNames(final SymbolTable symbolTable) {
+    return visiblePropertyNames(symbolTable, null);
+  }
+
   public static final List<String> visibleFunctionNames(final SymbolTable symbolTable,
       final Type expectedReturnType) {
     final List<String> visibleFunctioneNames = new LinkedList<>();
 
     final LinkedHashMap<String, Symbol> flattened = flatten(symbolTable);
     for (final Symbol symbol : flattened.values()) {
-      if (!(symbol instanceof Function)) {
+      Function function;
+      if (symbol instanceof Type) {
+        Type type = (Type) symbol;
+        if (type.constructors.items.size() == 0) {
+          continue;
+        }
+        int randomIndex = (int) (Math.random() * type.constructors.items.size());
+        CustomList<Variable> params = type.constructors.items.get(randomIndex);
+        function = Function.create(type.name, type, params);
+      } else if (symbol instanceof Function){
+        function = (Function) symbol;
+      } else {
         continue;
       }
-      Function function = (Function) symbol;
       if (expectedReturnType == null || Type.assignable(function.returnType, expectedReturnType)) {
         visibleFunctioneNames.add(function.name);
       }
     }
-
     return visibleFunctioneNames;
   }
 
@@ -180,18 +247,59 @@ public final class SymbolTable {
     return visibleFunctionNames(symbolTable, null);
   }
 
-  public static final List<String> visibleMethodNames(final SymbolTable symbolTable,
+  public static final List<String> visibleMemberFunctionNames(final SymbolTable symbolTable,
       final Type calleeType, final Type expectedReturnType) {
-    final List<String> visibleMethodNames = new ArrayList<>();
+    final List<String> visibleMemberFunctionNames = new ArrayList<>();
 
-    for (Map.Entry<String, Function> entry : calleeType.methods.entrySet()) {
+    for (Map.Entry<String, Function> entry : calleeType.memberFunctions.entrySet()) {
       if (Type.assignable(entry.getValue().returnType, expectedReturnType)) {
-        visibleMethodNames.add(entry.getKey());
+        visibleMemberFunctionNames.add(entry.getKey());
       }
     }
 
-    return visibleMethodNames;
+    return visibleMemberFunctionNames;
   }
+
+  public static final SymbolTable removeAll(final SymbolTable symbolTable, 
+    final CustomList<Variable> variables) {
+      if (variables == null) {
+        return symbolTable;
+      }
+      final SymbolTable clone = symbolTable.clone();
+      
+      for (Variable var : variables.items) {
+        final Map<String, Symbol> containingScope = getContainingScope(clone, var.name);
+        if (containingScope != null) {
+          containingScope.remove(var.name);
+        }
+      }
+
+      return clone;
+    }
+
+  public static final SymbolTable removeNonProperties(final SymbolTable symbolTable, 
+    final CustomList<Variable> constructorParams, final CustomList<Variable> properties) {
+      if (constructorParams == null) {
+        return symbolTable;
+      }
+
+      final SymbolTable clone = symbolTable.clone();
+
+      for (Variable param : constructorParams.items) {
+        boolean isProperty = false;
+        for (Variable property : properties.items) {
+          if (property.name.equals(param.name)) {
+            isProperty = true;
+            break;
+          }
+        }
+        if (!isProperty) {
+          final Map<String, Symbol> containingScope = getContainingScope(clone, param.name);
+          containingScope.remove(param.name);
+        }
+      }
+      return clone;
+    }
 
   public static final SymbolTable setIsInitialised(final SymbolTable symbolTable,
       final Variable variable, final Boolean isInitialised) {

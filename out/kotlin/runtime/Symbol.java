@@ -24,10 +24,19 @@ public class Symbol implements Printable {
   }
 
   public static final Function asFunction(final Symbol symbol) {
-    if (!(symbol instanceof Function)) {
-      throw new RuntimeException("Invalid cast of Symbol to Function");
+    if (symbol instanceof Type) {
+      Type type = (Type) symbol;
+      if (type.constructors.items.size() == 0) {
+        throw new RuntimeException("Invalid cast of Type with no constructor to Function");
+      }
+      int randomIndex = (int) (Math.random() * type.constructors.items.size());
+      CustomList<Variable> params = type.constructors.items.get(randomIndex);
+      return Function.create(type.name, type, params);
     }
-    return (Function) symbol;
+    if (symbol instanceof Function) {
+      return (Function) symbol;
+    }
+    throw new RuntimeException("Invalid cast of Symbol to Function");
   }
 
   public static final Variable asVariable(final Symbol symbol) {
