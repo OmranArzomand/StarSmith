@@ -68,6 +68,10 @@ public class Type extends Symbol implements Printable{
     return type.memberFunctions.get(functionName);
   }
 
+  public static CustomList<Variable> getProperties(Type type) {
+    return type.properties;
+  }
+
   public static Type create(String name) {
     return new Type(name);
   }
@@ -94,6 +98,15 @@ public class Type extends Symbol implements Printable{
       }
     }
     throw new RuntimeException("Property doesn't exist in class");
+  }
+
+  public static Type addExtensionFunction(Type type, Function function) {
+    CustomList<Function> newMemberFunctions = new CustomList<>();
+    for (final Map.Entry<String, Function> entry : type.memberFunctions.entrySet()) {
+      newMemberFunctions.items.add(entry.getValue());
+    }
+    newMemberFunctions.items.add(function);
+    return Type.create(type.name, type.constructors, type.properties, newMemberFunctions);
   }
 
   @Override

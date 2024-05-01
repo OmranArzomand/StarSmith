@@ -424,7 +424,7 @@ class OptionalStmtList {
 
 }
 
-@list(200)
+@list(100)
 class StmtList {
 
   inh symbols_before : SymbolTable;
@@ -438,7 +438,7 @@ class StmtList {
     this.symbols_after = stmt.symbols_after;
   }
 
-  @weight(100)
+  @weight(50)
   mult_stmt ("${stmt : Stmt}\n${rest : StmtList}") {
     stmt.symbols_before = this.symbols_before;
 
@@ -456,6 +456,14 @@ class Stmt {
   syn symbols_after : SymbolTable;
 
   grd possible;
+
+  extension_func ("${extension_func : ExtensionFunctionDeclaration}") {
+    this.possible = true;
+
+    extension_func.symbols_before = this.symbols_before;
+
+    this.symbols_after = (SymbolTable:put this.symbols_before (Type:addExtensionFunction extension_func.type extension_func.function));
+  }
 
   call ("${call : Call}") {
     this.possible = true;
@@ -502,6 +510,48 @@ class Stmt {
 
 }
 
+class ExtensionFunctionDeclaration {
+
+  syn function : Function;
+  syn type : Type;
+
+  inh symbols_before : SymbolTable;
+
+  func_decl_expr
+      ("fun ${type : Type}.${name : DefIdentifier}(${params : ParameterDeclarationList})${ret_type : OptionalTypeAnnotation} = ${expr: Expr}") {
+    
+    loc this_object = (Variable:create "this" type.type true false);
+
+    type.symbols_before = this.symbols_before;
+    this.type = type.type;
+    params.symbols_before = (SymbolTable:enterScope this.symbols_before);
+    ret_type.symbols_before = this.symbols_before;
+    expr.symbols_before = (SymbolTable:putAllNew (SymbolTable:put params.symbols_after .this_object) (Type:getProperties type.type));
+    expr.expected_type = (if ret_type.has_type ret_type.type (SymbolTable:getAsType this.symbols_before (AnyType:name)));
+    name.symbols_before = this.symbols_before;
+    this.function = (Function:create name.name (if ret_type.has_type ret_type.type expr.type) params.params );
+  }
+
+  func_decl
+      ("fun ${type : Type}.${name : DefIdentifier}(${params : ParameterDeclarationList})${ret_type : OptionalTypeAnnotation} {\+
+          ${body : FunctionBody}\-
+        }\n") {
+    loc actual_ret_type = (if ret_type.has_type ret_type.type (SymbolTable:getAsType this.symbols_before (UnitType:name)));
+    loc this_object = (Variable:create "this" type.type true false);
+
+    type.symbols_before = this.symbols_before;
+    this.type = type.type;
+    ret_type.symbols_before = this.symbols_before;
+    params.symbols_before = (SymbolTable:enterScope this.symbols_before);
+    body.symbols_before = (SymbolTable:putAllNew (SymbolTable:put params.symbols_after .this_object) (Type:getProperties type.type));
+    body.expected_return_type = .actual_ret_type;
+    name.symbols_before = this.symbols_before;
+    this.function = (Function:create name.name .actual_ret_type params.params);
+  }
+
+
+}
+
 class MemberFunctionCall {
   inh symbols_before : SymbolTable;
   inh expected_type : Type;
@@ -519,7 +569,7 @@ class MemberFunctionCall {
 
     member_function_callee.symbols_before = this.symbols_before;
     member_function_callee.expected_return_type = this.expected_type;
-    member_function_callee.callee_type = (SymbolTable:getAsType this.symbols_before (Symbol:getName expr.type));
+    member_function_callee.callee_type = (SymbolTable:getAsType this.symbols_before (Symbol:getName expr.type) true);
 
     this.type = (Function:getReturnType .functionSymbol);
 
@@ -850,7 +900,7 @@ class Expr {
     this.type = member_function_call.type;
   }
 
-  arith_bin_op ("(${lhs : Expr}) ${op : ArithBinaryOperator} (${rhs : Expr})") {
+  arith_bin_op ("((${lhs : Expr}) ${op : ArithBinaryOperator} (${rhs : Expr}))") {
     loc int_type = (SymbolTable:getAsType this.symbols_before (IntType:name));
     this.valid2 = true;
 
@@ -864,7 +914,7 @@ class Expr {
     this.type = .int_type;
   }
 
-  bool_bin_op ("(${lhs : Expr}) ${op : BoolBinaryOperator} (${rhs : Expr})") {
+  bool_bin_op ("((${lhs : Expr}) ${op : BoolBinaryOperator} (${rhs : Expr}))") {
     loc bool_type = (SymbolTable:getAsType this.symbols_before (BooleanType:name));
     this.valid2 = true;
 
@@ -878,7 +928,7 @@ class Expr {
     this.type = .bool_type;
   }
 
-  bool_unary_op ("${op: BoolUnaryOperator}(${exp: Expr})") {
+  bool_unary_op ("(${op: BoolUnaryOperator}(${exp: Expr}))") {
     loc bool_type = (SymbolTable:getAsType this.symbols_before (BooleanType:name));
     this.valid2 = true;
 
@@ -889,7 +939,7 @@ class Expr {
     this.type = .bool_type;
   }
 
-  equality_bin_op ("(${lhs : Expr}) ${op : EqualityOp} (${rhs : Expr})") {
+  equality_bin_op ("((${lhs : Expr}) ${op : EqualityOp} (${rhs : Expr}))") {
     this.valid2 = true;
 
     lhs.symbols_before = this.symbols_before;
@@ -902,7 +952,7 @@ class Expr {
     this.type = (SymbolTable:getAsType this.symbols_before (BooleanType:name));
   }
 
-  comparison_bin_op ("(${lhs: Expr}) ${op : ComparisonOp} (${rhs : Expr})") {
+  comparison_bin_op ("((${lhs: Expr}) ${op : ComparisonOp} (${rhs : Expr}))") {
     lhs.symbols_before = this.symbols_before;
     lhs.expected_type = (SymbolTable:getAsType this.symbols_before (AnyType:name));
     
@@ -911,7 +961,7 @@ class Expr {
     rhs.symbols_before = this.symbols_before;
     rhs.expected_type = lhs.type;
 
-    this.valid = (Type:assignable (SymbolTable:getAsType this.symbols_before (BooleanType:name)) this.expected_type);
+    this.valid = (and (Type:assignable (SymbolTable:getAsType this.symbols_before (BooleanType:name)) this.expected_type) false);
     this.type = (SymbolTable:getAsType this.symbols_before (BooleanType:name));
   }
 }

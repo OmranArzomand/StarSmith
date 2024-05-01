@@ -35,6 +35,18 @@ public final class SymbolTable {
     return clone;
   }
 
+  public static final SymbolTable putAllNew(final SymbolTable symbolTable, CustomList<Variable> symbols) {
+    final SymbolTable clone = symbolTable.clone();
+
+    for (Symbol symbol : symbols.items) {
+      if (!symbolTable.scopes.getLast().containsKey(symbol.name)) {
+        clone.put(symbol);
+      } 
+    }
+
+    return clone;
+  }
+
   // XXX performance could be improved
   public static final SymbolTable enterScope(final SymbolTable symbolTable) {
     final SymbolTable clone = symbolTable.clone();
@@ -63,7 +75,8 @@ public final class SymbolTable {
   }
 
   public static final boolean mayDefine(final SymbolTable symbolTable, final String name) {
-    return !symbolTable.scopes.getLast().containsKey(name);
+    return !symbolTable.scopes.getLast().containsKey(name) 
+      && !name.equals("this") && !name.equals("is");
   }
 
   public static final Symbol get(final SymbolTable symbolTable, final String name) {
@@ -80,6 +93,20 @@ public final class SymbolTable {
   }
 
   public static final Type getAsType(final SymbolTable symbolTable, final String name) {
+    final Iterator<Map<String, Symbol>> scopeIterator = symbolTable.scopes.descendingIterator();
+    while (scopeIterator.hasNext()) {
+      final Map<String, Symbol> scope = scopeIterator.next();
+
+      if (scope.containsKey(name)) {
+        return (Type) scope.get(name);
+      }
+    }
+
+    throw new RuntimeException("name not defined");
+  }
+
+  public static final Type getAsType(final SymbolTable symbolTable, final String name, boolean b) {
+   
     final Iterator<Map<String, Symbol>> scopeIterator = symbolTable.scopes.descendingIterator();
     while (scopeIterator.hasNext()) {
       final Map<String, Symbol> scope = scopeIterator.next();
