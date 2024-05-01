@@ -6,17 +6,12 @@ import java.util.Objects;
 
 public class IntType extends Type implements Printable {
 
-  public IntType(String name) {
-      super(name);
-      memberFunctions.put("plus", new Function("plus", this, new CustomList<Variable>(new Variable("x", this, true, false))));
+  public IntType(String name, CustomList<CustomList<Variable>> constructors, SymbolTable symbolTable) {
+    super(name, constructors, symbolTable);
   }
 
   public IntType clone() {
-    return new IntType(name);
-  }
-
-  public static IntType create() {
-    return new IntType("Int");
+    return new IntType(name, constructors, symbolTable);
   }
 
   public static String name() {

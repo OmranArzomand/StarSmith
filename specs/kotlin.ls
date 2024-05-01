@@ -88,61 +88,45 @@ class ClassDeclaration {
     ident.symbols_before = this.symbols_before;
     primary_constructor.symbols_before = (SymbolTable:enterScope this.symbols_before);
     body.symbols_before = primary_constructor.symbols_after;
-    body.primary_constructor = primary_constructor.params;
-    body.constructors_before = (CustomList:empty);
-    body.properties_before = primary_constructor.properties;
-    body.member_functions_before = (CustomList:empty);
+    body.constructors_before = (if (== primary_constructor.params nil) (CustomList:empty) (CustomList:create primary_constructor.params));
+    body.non_property_constrcutor_params = primary_constructor.non_property_constrcutor_params;
     body.class_name = ident.name;
-    this.symbol = (Type:create ident.name (CustomList:prepend body.constructors_after primary_constructor.params) body.properties_after body.member_functions_after);
+    this.symbol = (Type:create ident.name body.constructors_after body.symbols_after);
   }
 }
 
 class ClassMemberList {
   inh symbols_before : SymbolTable;
   inh constructors_before : CustomList;
-  inh properties_before : CustomList;
-  inh primary_constructor : CustomList;
-  inh member_functions_before : CustomList;
+  inh non_property_constrcutor_params : CustomList;
   inh class_name : String;
 
-  syn properties_after : CustomList;
   syn symbols_after : SymbolTable;
-  syn member_functions_after : CustomList;
   syn constructors_after : CustomList;
 
   member ("${member : ClassMember}") {
     member.symbols_before = this.symbols_before;
-    member.properties_before = this.properties_before;
+    member.non_property_constrcutor_params = this.non_property_constrcutor_params;
     member.constructors_before = this.constructors_before;
-    member.member_functions_before = this.member_functions_before;
-    member.primary_constructor = this.primary_constructor;
     member.class_name = this.class_name;
 
-    this.properties_after = member.properties_after;
     this.symbols_after = member.symbols_after;
-    this.member_functions_after = member.member_functions_after;
     this.constructors_after = member.constructors_after;
   } 
 
   @weight(100)
   mult_members ("${member : ClassMember}\n${rest : ClassMemberList}") {
     member.symbols_before = this.symbols_before;
-    member.properties_before = this.properties_before;
+    member.non_property_constrcutor_params = this.non_property_constrcutor_params;
     member.constructors_before = this.constructors_before;
-    member.member_functions_before = this.member_functions_before;
-    member.primary_constructor = this.primary_constructor;
     member.class_name = this.class_name;
 
     rest.symbols_before = member.symbols_after;
-    rest.properties_before = member.properties_after;
+    rest.non_property_constrcutor_params = this.non_property_constrcutor_params;
     rest.constructors_before = member.constructors_after;
-    rest.member_functions_before = member.member_functions_after;
-    rest.primary_constructor = this.primary_constructor;
     rest.class_name = this.class_name;
 
     this.symbols_after = rest.symbols_after;
-    this.properties_after = rest.properties_after;
-    this.member_functions_after = rest.member_functions_after;
     this.constructors_after = rest.constructors_after;
   }
 }
@@ -152,66 +136,62 @@ class ClassMember {
 
   inh symbols_before : SymbolTable;
   inh constructors_before : CustomList;
-  inh properties_before : CustomList;
-  inh member_functions_before : CustomList;
-  inh primary_constructor : CustomList;
+  inh non_property_constrcutor_params : CustomList;
   inh class_name : String;
 
   syn symbols_after : SymbolTable;
-  syn properties_after : CustomList;
-  syn member_functions_after : CustomList;
   syn constructors_after : CustomList;
 
   property ("${decl : VariableDeclaration}") {
     this.valid = true;
 
-    decl.symbols_before = this.symbols_before;
+    decl.symbols_before = (SymbolTable:putAll this.symbols_before this.non_property_constrcutor_params);
     decl.must_initialise = true;
-    this.properties_after = (CustomList:prepend this.properties_before decl.symbol);
     this.symbols_after = (SymbolTable:put this.symbols_before decl.symbol);
-    this.member_functions_after = this.member_functions_before;
+    this.constructors_after = this.constructors_before;
+  }
+
+  extension_func ("${extension_func : ExtensionFunctionDeclaration}") {
+    this.valid = true;
+
+    extension_func.symbols_before = this.symbols_before;
+
+    this.symbols_after = (SymbolTable:put this.symbols_before (Type:addExtensionFunction extension_func.type extension_func.function));
     this.constructors_after = this.constructors_before;
   }
 
   init ("init {\+${stmts : StmtList}\-}") {
     this.valid = true;
 
-    stmts.symbols_before = (SymbolTable:enterScope this.symbols_before);
+    stmts.symbols_before = (SymbolTable:enterScope (SymbolTable:putAll this.symbols_before this.non_property_constrcutor_params));
 
-    this.properties_after = this.properties_before;
     this.symbols_after = this.symbols_before;
-    this.member_functions_after = this.member_functions_before;
     this.constructors_after = this.constructors_before;
   }
 
   member_function ("${func : FunctionDeclaration}") {
     this.valid = true;
 
-    func.symbols_before = (SymbolTable:removeNonProperties this.symbols_before this.primary_constructor this.properties_before);
+    func.symbols_before = this.symbols_before;
 
-    this.properties_after = this.properties_before;
-    this.symbols_after = this.symbols_before;
-    this.member_functions_after = (CustomList:prepend this.member_functions_before func.symbol);
+    this.symbols_after = (SymbolTable:put this.symbols_before func.symbol);
     this.constructors_after = this.constructors_before;
   }
 
   secondary_constructor ("constructor (${params : ParameterDeclarationList})${delagation : OptionalConstructorDelegation} {\+${stmts : StmtList}\-}") {
-    loc class_type = (Type:create this.class_name (CustomList:prepend this.constructors_before this.primary_constructor) this.properties_before this.member_functions_before);
+    loc class_type = (Type:create this.class_name this.constructors_before this.symbols_before);
     loc this_object = (Variable:create "this" .class_type true false);
 
-    this.valid = (not (CustomList:contains (CustomList:prepend this.constructors_before this.primary_constructor) params.params));
+    this.valid = (not (CustomList:contains this.constructors_before params.params));
 
     params.symbols_before = (SymbolTable:enterScope this.symbols_before);
 
-    delagation.symbols_before = (SymbolTable:removeAll (SymbolTable:removeAll params.symbols_after this.primary_constructor) this.properties_before);
+    delagation.symbols_before = (SymbolTable:putAll (SymbolTable:exitScope this.symbols_before) params.params);
     delagation.constructors = this.constructors_before;
-    delagation.primary_constructor = this.primary_constructor;
 
-    stmts.symbols_before = (SymbolTable:put (SymbolTable:put (SymbolTable:removeNonProperties params.symbols_after this.primary_constructor this.properties_before) .class_type) .this_object);
+    stmts.symbols_before = (SymbolTable:put (SymbolTable:put params.symbols_after .class_type) .this_object);
 
     this.symbols_after = this.symbols_before;
-    this.properties_after = this.properties_before;
-    this.member_functions_after = this.member_functions_before;
     this.constructors_after = (CustomList:prepend this.constructors_before params.params);
   }
 }
@@ -219,19 +199,18 @@ class ClassMember {
 class OptionalConstructorDelegation {
   grd valid;
   inh symbols_before : SymbolTable;
-  inh primary_constructor : CustomList;
   inh constructors : CustomList;
 
   no_delegation ("") {
-    this.valid = (== this.primary_constructor nil);
+    this.valid = (== (CustomList:getSize this.constructors) 0);
 
   }
 
   delegation (": this(${args : ArgumentList})") {
-    this.valid = (or (not (== this.primary_constructor nil)) (> (CustomList:getSize this.constructors) 0));
+    this.valid = (> (CustomList:getSize this.constructors) 0);
 
     args.symbols_before = this.symbols_before;
-    args.expected_params = (CustomList:random (CustomList:prepend this.constructors this.primary_constructor));
+    args.expected_params = (CustomList:random this.constructors);
   }
 }
 
@@ -239,11 +218,11 @@ class OptionalPrimaryConstructor {
   inh symbols_before : SymbolTable;
   syn symbols_after : SymbolTable;
   syn params : CustomList;
-  syn properties : CustomList;
+  syn non_property_constrcutor_params : CustomList;
 
   no_constructor("") {
     this.params = nil;
-    this.properties = (CustomList:empty);
+    this.non_property_constrcutor_params = (CustomList:empty);
     this.symbols_after = this.symbols_before;
   }
 
@@ -252,7 +231,7 @@ class OptionalPrimaryConstructor {
     constructorList.symbols_before = this.symbols_before;
     this.symbols_after = constructorList.symbols_after;
     this.params = constructorList.params;
-    this.properties = constructorList.properties;
+    this.non_property_constrcutor_params = constructorList.non_property_constrcutor_params;
   }
 }
 
@@ -260,21 +239,21 @@ class ConstructorList {
   inh symbols_before : SymbolTable;
   syn symbols_after : SymbolTable;
   syn params : CustomList;
-  syn properties : CustomList;
+  syn non_property_constrcutor_params : CustomList;
 
   no_param ("") {
     this.symbols_after = this.symbols_before;
     this.params = (CustomList:empty);
-    this.properties = (CustomList:empty);
+    this.non_property_constrcutor_params = (CustomList:empty);
   }
 
   @weight(10)
   mult_param ("${param : ConstructorParameterDeclaration}, ${rest : ConstructorList}") {
     param.symbols_before = this.symbols_before;
-    rest.symbols_before = (SymbolTable:put this.symbols_before param.symbol);
+    rest.symbols_before = (if param.add_to_properties (SymbolTable:put this.symbols_before param.symbol) this.symbols_before);
     this.symbols_after = rest.symbols_after;
     this.params = (CustomList:prepend rest.params param.symbol);
-    this.properties = (if param.add_to_properties (CustomList:prepend rest.properties param.symbol) rest.properties);
+    this.non_property_constrcutor_params = (if param.add_to_properties rest.non_property_constrcutor_params (CustomList:prepend rest.non_property_constrcutor_params param.symbol));
   }
 }
 
@@ -526,7 +505,7 @@ class ExtensionFunctionDeclaration {
     this.type = type.type;
     params.symbols_before = (SymbolTable:enterScope this.symbols_before);
     ret_type.symbols_before = this.symbols_before;
-    expr.symbols_before = (SymbolTable:putAllNew (SymbolTable:put params.symbols_after .this_object) (Type:getProperties type.type));
+    expr.symbols_before = (SymbolTable:put (SymbolTable:putAll (SymbolTable:merge this.symbols_before (Type:getSymbolTable type.type)) params.params) .this_object);
     expr.expected_type = (if ret_type.has_type ret_type.type (SymbolTable:getAsType this.symbols_before (AnyType:name)));
     name.symbols_before = this.symbols_before;
     this.function = (Function:create name.name (if ret_type.has_type ret_type.type expr.type) params.params );
@@ -543,13 +522,11 @@ class ExtensionFunctionDeclaration {
     this.type = type.type;
     ret_type.symbols_before = this.symbols_before;
     params.symbols_before = (SymbolTable:enterScope this.symbols_before);
-    body.symbols_before = (SymbolTable:putAllNew (SymbolTable:put params.symbols_after .this_object) (Type:getProperties type.type));
+    body.symbols_before = (SymbolTable:put (SymbolTable:putAll (SymbolTable:merge this.symbols_before (Type:getSymbolTable type.type)) params.params) .this_object);
     body.expected_return_type = .actual_ret_type;
     name.symbols_before = this.symbols_before;
     this.function = (Function:create name.name .actual_ret_type params.params);
   }
-
-
 }
 
 class MemberFunctionCall {
@@ -559,19 +536,18 @@ class MemberFunctionCall {
   syn type : Type;
 
   member_function_call("${expr : Expr}.${member_function_callee : MemberFunctionCallee}(${args : ArgumentList})") {
-    loc functionSymbol = member_function_callee.symbol;
-
     expr.symbols_before = this.symbols_before;
-    expr.expected_type = this.expected_type;
+    expr.expected_type = (SymbolTable:getAsType this.symbols_before (AnyType:name));
 
-    args.expected_params = (Function:getParams .functionSymbol);
+    member_function_callee.expected_return_type = this.expected_type;
+    member_function_callee.callee_type = (SymbolTable:getAsType this.symbols_before (Symbol:getName expr.type));
+
+    args.expected_params = (Function:getParams member_function_callee.symbol);
     args.symbols_before = this.symbols_before;
 
-    member_function_callee.symbols_before = this.symbols_before;
-    member_function_callee.expected_return_type = this.expected_type;
-    member_function_callee.callee_type = (SymbolTable:getAsType this.symbols_before (Symbol:getName expr.type) true);
+    
 
-    this.type = (Function:getReturnType .functionSymbol);
+    this.type = (Function:getReturnType member_function_callee.symbol);
 
   }
 }
@@ -628,7 +604,6 @@ class ArgumentList {
 }
 
 class MemberFunctionCallee {
-  inh symbols_before : SymbolTable;
   inh expected_return_type : Type;
   inh callee_type : Type;
 
@@ -637,7 +612,6 @@ class MemberFunctionCallee {
   callee ("${member_function : UseMemberFunctionIdentifier}") {
     member_function.expected_return_type = this.expected_return_type;
     member_function.callee_type = this.callee_type;
-    member_function.symbols_before = this.symbols_before;
 
     this.symbol = member_function.symbol;
 
@@ -688,6 +662,7 @@ class AssignableExpr {
   syn symbol : Variable;
   syn is_property : Boolean;
 
+  @weight(1)
   variable ("${var : UseVariableIdentifier}") {
     var.expected_type = (SymbolTable:getAsType this.symbols_before (AnyType:name));
     var.symbols_before = this.symbols_before;
@@ -695,11 +670,12 @@ class AssignableExpr {
     this.is_property = false;
   }
 
-  property ("${classType : Expr}.${property : UsePropertyIdentifier}") {
-    property.symbols_before = this.symbols_before;
+  @weight(5)
+  property ("${class_type : Expr}.${property : UsePropertyIdentifier}") {
+    class_type.symbols_before = this.symbols_before;
+    class_type.expected_type = (SymbolTable:getAsType this.symbols_before (AnyType:name));
+    property.class_type = class_type.type;
     property.expected_type = (SymbolTable:getAsType this.symbols_before (AnyType:name));
-    classType.symbols_before = this.symbols_before;
-    classType.expected_type = property.classType;
     this.symbol = property.symbol;
     this.is_property = true;
   }
@@ -879,14 +855,15 @@ class Expr {
     this.type = atom.type;
   }
 
-  property ("${classType : Expr}.${property : UsePropertyIdentifier}") {
+  @weight(0)
+  property ("${class_type : Expr}.${property : UsePropertyIdentifier}") {
     this.valid = true;
     this.valid2 = true;
 
-    property.symbols_before = this.symbols_before;
+    class_type.symbols_before = this.symbols_before;
+    class_type.expected_type = (SymbolTable:getAsType this.symbols_before (AnyType:name));
+    property.class_type = class_type.type;
     property.expected_type = this.expected_type;
-    classType.symbols_before = this.symbols_before;
-    classType.expected_type = property.classType;
     this.type = (Variable:getType property.symbol);
   }
 
@@ -1055,15 +1032,12 @@ class UseVariableIdentifier {
 class UsePropertyIdentifier {
 
   inh expected_type : Type;
-  inh symbols_before : SymbolTable;
+  inh class_type : Type;
 
   syn symbol : Variable;
-  syn classType : Type;
 
-  use_id (SymbolTable:visiblePropertyNames this.symbols_before this.expected_type) : String {
-    loc classType = (SymbolTable:getClassWithPropertyAndType this.symbols_before $ this.expected_type);
-    this.classType = .classType;
-    this.symbol = (Type:getProperty .classType $);
+  use_id (SymbolTable:visiblePropertyNames this.class_type this.expected_type) : String {
+    this.symbol = (Symbol:asVariable (SymbolTable:get (Type:getSymbolTable this.class_type) $));
   }
 }
 
@@ -1082,14 +1056,13 @@ class UseFunctionIdentifier {
 
 class UseMemberFunctionIdentifier {
 
-  inh symbols_before : SymbolTable;
   inh expected_return_type : Type;
   inh callee_type : Type;
 
   syn symbol : Function;
 
-  use_id (SymbolTable:visibleMemberFunctionNames this.symbols_before this.callee_type this.expected_return_type) : String {
-    this.symbol = (Type:getMemberFunction this.callee_type $);
+  use_id (SymbolTable:visibleMemberFunctionNames this.callee_type this.expected_return_type) : String {
+    this.symbol = (Symbol:asFunction (SymbolTable:get (Type:getSymbolTable this.callee_type) $));
   }
 
 }

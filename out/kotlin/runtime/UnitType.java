@@ -6,16 +6,12 @@ import java.util.Objects;
 
 public class UnitType extends Type implements Printable {
 
-  public UnitType(String name) {
-    super(name);
+  public UnitType(String name, CustomList<CustomList<Variable>> constructors, SymbolTable symbolTable) {
+    super(name, constructors, symbolTable);
   }
 
   public UnitType clone() {
-    return new UnitType(name);
-  }
-
-  public static UnitType create() {
-    return new UnitType("Unit");
+    return new UnitType(name, constructors, symbolTable);
   }
 
   public static String name() {

@@ -6,17 +6,14 @@ import java.util.Objects;
 
 public class AnyType extends Type implements Printable {
 
-  public AnyType(String name) {
-    super(name);
+  public AnyType(String name, CustomList<CustomList<Variable>> constructors, SymbolTable symbolTable) {
+    super(name, constructors, symbolTable);
   }
 
   public AnyType clone() {
-    return new AnyType(name);
+    return new AnyType(name, constructors, symbolTable);
   }
 
-  public static AnyType create() {
-    return new AnyType("Any");
-  }
 
   public static String name() {
     return "Any";

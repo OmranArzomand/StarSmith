@@ -6,16 +6,12 @@ import java.util.Objects;
 
 public class BooleanType extends Type implements Printable {
 
-  public BooleanType(String name) {
-    super(name);
+  public BooleanType(String name, CustomList<CustomList<Variable>> constructors, SymbolTable symbolTable) {
+    super(name, constructors, symbolTable);
   }
 
   public BooleanType clone() {
-    return new BooleanType(name);
-  }
-
-  public static BooleanType create() {
-    return new BooleanType("Boolean");
+    return new BooleanType(name, constructors, symbolTable);
   }
 
   public static String name() {
