@@ -45,10 +45,7 @@ public class Variable extends Symbol implements Printable {
 
     final Variable otherVariable = (Variable) obj;
 
-    return Objects.equals(this.name, otherVariable.name)
-      && Objects.equals(this.type, otherVariable.type)
-      && Objects.equals(this.isInitialised, otherVariable.isInitialised)
-      && Objects.equals(this.isMutable, otherVariable.isMutable);
+    return Objects.equals(this.name, otherVariable.name);
   }
 
   @Override

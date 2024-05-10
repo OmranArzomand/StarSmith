@@ -12,15 +12,37 @@ public final class SymbolTable {
 
   public static final SymbolTable init() {
     SymbolTable symbolTable = new SymbolTable(true);
-    IntType intType = new IntType(IntType.name(), CustomList.empty(), SymbolTable.enterScope(symbolTable));
+
+    Type anyType = new Type("Any");
+    symbolTable.put(anyType);
+
+    Type intType = new Type("Int");
+    intType.supertypes.add(anyType);
     symbolTable.put(intType);
-    symbolTable.put(new AnyType(AnyType.name(), CustomList.empty(), SymbolTable.enterScope(symbolTable)));
-    symbolTable.put(new UnitType(UnitType.name(), CustomList.empty(), SymbolTable.enterScope(symbolTable)));
-    symbolTable.put(new BooleanType(BooleanType.name(), CustomList.empty(), SymbolTable.enterScope(symbolTable)));
-    symbolTable.put(new StringType(StringType.name(), CustomList.empty(), SymbolTable.enterScope(symbolTable)));
-    symbolTable.put(new CharType(CharType.name(), CustomList.empty(), SymbolTable.enterScope(symbolTable)));
+
+    Type booleanType = new Type("Boolean");
+    booleanType.supertypes.add(anyType);
+    symbolTable.put(booleanType);
+
+    Type stringType = new Type("String");
+    stringType.supertypes.add(anyType);
+    symbolTable.put(stringType);
+
+    Type charType = new Type("Char");
+    charType.supertypes.add(anyType);
+    symbolTable.put(charType);
+
+    Type unitType = new Type("Unit");
+    unitType.supertypes.add(anyType);
+    symbolTable.put(unitType);
+
+    // Type nothingType = new Type("Nothing");
+    // nothingType.supertypes.add(charType, stringType, booleanType, intType);
+    // symbolTable.put(nothingType);
+
     symbolTable.put(new Function("maxOf", intType, new CustomList<Variable>(
       new Variable("x", intType, true, false), new Variable("y", intType, true, false))));
+
     return symbolTable;
   }
 
@@ -137,8 +159,8 @@ public final class SymbolTable {
     return flattened;
   }
 
-  public static final List<String> visibleTypeNames(final SymbolTable symbolTable) {
-    final List<String> visibleTypeNames = new LinkedList<>();
+  public static final List<Type> visibleTypes(final SymbolTable symbolTable) {
+    final List<Type> visibleTypes = new LinkedList<>();
 
     final LinkedHashMap<String, Symbol> flattened = flatten(symbolTable);
     for (final Symbol symbol : flattened.values()) {
@@ -146,9 +168,9 @@ public final class SymbolTable {
         continue;
       }
       Type type = (Type) symbol;
-      visibleTypeNames.add(type.name);
+      visibleTypes.add(type);
     }
-    return visibleTypeNames;
+    return visibleTypes;
   }
 
   public static final List<Variable> visibleVariables(final SymbolTable symbolTable,
@@ -173,28 +195,6 @@ public final class SymbolTable {
     return visibleVariables(symbolTable, null);
   }
 
-  public static final List<String> visibleVariableNames(final SymbolTable symbolTable,
-      final Type expectedType) {
-    final List<String> visibleVariableNames = new LinkedList<>();
-
-    final LinkedHashMap<String, Symbol> flattened = flatten(symbolTable);
-    for (final Symbol symbol : flattened.values()) {
-      if (!(symbol instanceof Variable)) {
-        continue;
-      }
-      Variable variable = (Variable) symbol;
-      if (expectedType == null || Type.assignable(variable.type, expectedType)) {
-        visibleVariableNames.add(variable.name);
-      }
-    }
-
-    return visibleVariableNames;
-  }
-
-  public static final List<String> visibleVariableNames(final SymbolTable symbolTable) {
-    return visibleVariableNames(symbolTable, null);
-  }
-
   // public static final Type getClassWithPropertyAndType(final SymbolTable symbolTable,
   //     final String propertyName, final Type propertyType) {
 
@@ -213,75 +213,59 @@ public final class SymbolTable {
   //   throw new RuntimeException("No class exists with property given property name");
   // }
 
-  public static final List<String> visiblePropertyNames(final Type classType,
+  public static final List<Variable> visibleProperties(final Type classType,
       final Type expectedType) {
-    final List<String> visibleNames = new LinkedList<>();
+    final List<Variable> visibleProperties = new LinkedList<>();
 
-    Map<String, Symbol> lastScope = classType.symbolTable.scopes.getLast();
-
-    for (Symbol symbol : lastScope.values()) {
-      if (!(symbol instanceof Variable)) {
-        continue;
-      }
-      Variable variable = (Variable) symbol;
+    for (Variable variable : classType.properties.items) {
       if (expectedType == null || Type.assignable(variable.type, expectedType)) {
-        visibleNames.add(variable.name);
+        visibleProperties.add(variable);
       }
     }
 
-    return visibleNames;
+    return visibleProperties;
   }
 
-  // public static final List<String> visiblePropertyNames(final SymbolTable symbolTable) {
-  //   return visiblePropertyNames(symbolTable, null);
-  // }
-
-  public static final List<String> visibleFunctionNames(final SymbolTable symbolTable,
+  public static final List<Function> visibleFunctions(final SymbolTable symbolTable,
       final Type expectedReturnType) {
-    final List<String> visibleFunctioneNames = new LinkedList<>();
+    final List<Function> visibleFunctions = new LinkedList<>();
 
     final LinkedHashMap<String, Symbol> flattened = flatten(symbolTable);
     for (final Symbol symbol : flattened.values()) {
-      Function function;
       if (symbol instanceof Type) {
         Type type = (Type) symbol;
-        if (type.constructors.items.size() == 0) {
-          continue;
+        if (expectedReturnType == null || Type.assignable(type, expectedReturnType)) {
+          for (CustomList<Variable> constructorParams : type.constructors.items) {
+            visibleFunctions.add(Function.create(type.name, type, constructorParams));
+          }
         }
-        int randomIndex = (int) (Math.random() * type.constructors.items.size());
-        CustomList<Variable> params = type.constructors.items.get(randomIndex);
-        function = Function.create(type.name, type, params);
-      } else if (symbol instanceof Function){
-        function = (Function) symbol;
-      } else {
-        continue;
-      }
-      if (expectedReturnType == null || Type.assignable(function.returnType, expectedReturnType)) {
-        visibleFunctioneNames.add(function.name);
+      } else if (symbol instanceof Function) {
+        Function function = (Function) symbol;
+        if (expectedReturnType == null || Type.assignable(function.returnType, expectedReturnType)) {
+          visibleFunctions.add(function);
+        }
       }
     }
-    return visibleFunctioneNames;
+    return visibleFunctions;
   }
 
-  public static final List<String> visibleFunctionNames(final SymbolTable symbolTable) {
-    return visibleFunctionNames(symbolTable, null);
-  }
+  public static final List<Function> visibleMemberFunctions(final Type calleeType, final Type expectedReturnType) {
+    final List<Function> visibleMemberFunctions = new ArrayList<>();
 
-  public static final List<String> visibleMemberFunctionNames(final Type calleeType, final Type expectedReturnType) {
-    final List<String> visibleMemberFunctionNames = new ArrayList<>();
-
-    Map<String, Symbol> lastScope = calleeType.symbolTable.scopes.getLast();
-    for (Symbol symbol : lastScope.values()) {
-      if (!(symbol instanceof Function)) {
-        continue;
-      }
-      Function func = (Function) symbol;
-      if (Type.assignable(func.returnType, expectedReturnType)) {
-        visibleMemberFunctionNames.add(func.name);
+    for (Function function : calleeType.memberFunctions.items) {
+      if (Type.assignable(function.returnType, expectedReturnType)) {
+        visibleMemberFunctions.add(function);
       }
     }
+    return visibleMemberFunctions;
+  }
 
-    return visibleMemberFunctionNames;
+  public static final List<CustomList<Variable>> visibleConstructors(final Type type) {
+    return type.constructors.items;
+  }
+
+  public static final Type getKotlinAnyType(SymbolTable symbolTable) {
+    return SymbolTable.getAsType(symbolTable, "Any");
   }
 
   public static final SymbolTable removeAll(final SymbolTable symbolTable, 

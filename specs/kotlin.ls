@@ -1,14 +1,8 @@
 use Symbol;
 use SymbolTable;
 use Type;
-use AnyType;
-use BooleanType;
-use CharType;
 use Function;
-use IntType;
 use CustomList;
-use StringType;
-use UnitType;
 use Variable;
 
 class Program {
@@ -88,46 +82,41 @@ class ClassDeclaration {
     ident.symbols_before = this.symbols_before;
     primary_constructor.symbols_before = (SymbolTable:enterScope this.symbols_before);
     body.symbols_before = primary_constructor.symbols_after;
-    body.constructors_before = (if (== primary_constructor.params nil) (CustomList:empty) (CustomList:create primary_constructor.params));
+    body.class_type_before = (Type:addSupertype (Type:create ident.name (if (== primary_constructor.params nil) (CustomList:empty) (CustomList:create primary_constructor.params))) (SymbolTable:getKotlinAnyType this.symbols_before));
     body.non_property_constrcutor_params = primary_constructor.non_property_constrcutor_params;
-    body.class_name = ident.name;
-    this.symbol = (Type:create ident.name body.constructors_after body.symbols_after);
+    this.symbol = body.class_type_after;
   }
 }
 
 class ClassMemberList {
   inh symbols_before : SymbolTable;
-  inh constructors_before : CustomList;
+  inh class_type_before : Type;
   inh non_property_constrcutor_params : CustomList;
-  inh class_name : String;
 
   syn symbols_after : SymbolTable;
-  syn constructors_after : CustomList;
+  syn class_type_after : Type;
 
   member ("${member : ClassMember}") {
     member.symbols_before = this.symbols_before;
     member.non_property_constrcutor_params = this.non_property_constrcutor_params;
-    member.constructors_before = this.constructors_before;
-    member.class_name = this.class_name;
+    member.class_type_before = this.class_type_before;
 
     this.symbols_after = member.symbols_after;
-    this.constructors_after = member.constructors_after;
+    this.class_type_after = member.class_type_after;
   } 
 
   @weight(100)
   mult_members ("${member : ClassMember}\n${rest : ClassMemberList}") {
     member.symbols_before = this.symbols_before;
     member.non_property_constrcutor_params = this.non_property_constrcutor_params;
-    member.constructors_before = this.constructors_before;
-    member.class_name = this.class_name;
+    member.class_type_before = this.class_type_before;
 
     rest.symbols_before = member.symbols_after;
     rest.non_property_constrcutor_params = this.non_property_constrcutor_params;
-    rest.constructors_before = member.constructors_after;
-    rest.class_name = this.class_name;
+    rest.class_type_before = member.class_type_after;
 
     this.symbols_after = rest.symbols_after;
-    this.constructors_after = rest.constructors_after;
+    this.class_type_after = rest.class_type_after;
   }
 }
 
@@ -135,29 +124,19 @@ class ClassMember {
   grd valid;
 
   inh symbols_before : SymbolTable;
-  inh constructors_before : CustomList;
+  inh class_type_before : Type;
   inh non_property_constrcutor_params : CustomList;
-  inh class_name : String;
 
   syn symbols_after : SymbolTable;
-  syn constructors_after : CustomList;
+  syn class_type_after : Type;
 
-  property ("${decl : VariableDeclaration}") {
+  @weight(0)
+  property ("${decl : PropertyDeclaration}") {
     this.valid = true;
 
     decl.symbols_before = (SymbolTable:putAll this.symbols_before this.non_property_constrcutor_params);
-    decl.must_initialise = true;
     this.symbols_after = (SymbolTable:put this.symbols_before decl.symbol);
-    this.constructors_after = this.constructors_before;
-  }
-
-  extension_func ("${extension_func : ExtensionFunctionDeclaration}") {
-    this.valid = true;
-
-    extension_func.symbols_before = this.symbols_before;
-
-    this.symbols_after = (SymbolTable:put this.symbols_before (Type:addExtensionFunction extension_func.type extension_func.function));
-    this.constructors_after = this.constructors_before;
+    this.class_type_after = (Type:addProperty this.class_type_before decl.symbol);
   }
 
   init ("init {\+${stmts : StmtList}\-}") {
@@ -166,7 +145,7 @@ class ClassMember {
     stmts.symbols_before = (SymbolTable:enterScope (SymbolTable:putAll this.symbols_before this.non_property_constrcutor_params));
 
     this.symbols_after = this.symbols_before;
-    this.constructors_after = this.constructors_before;
+    this.class_type_after = this.class_type_before;
   }
 
   member_function ("${func : FunctionDeclaration}") {
@@ -175,42 +154,99 @@ class ClassMember {
     func.symbols_before = this.symbols_before;
 
     this.symbols_after = (SymbolTable:put this.symbols_before func.symbol);
-    this.constructors_after = this.constructors_before;
+    this.class_type_after = (Type:addMemberFunction this.class_type_before func.symbol);
   }
 
   secondary_constructor ("constructor (${params : ParameterDeclarationList})${delagation : OptionalConstructorDelegation} {\+${stmts : StmtList}\-}") {
-    loc class_type = (Type:create this.class_name this.constructors_before this.symbols_before);
-    loc this_object = (Variable:create "this" .class_type true false);
+    loc this_object = (Variable:create "this" this.class_type_before true false);
 
-    this.valid = (not (CustomList:contains this.constructors_before params.params));
+    this.valid = (not (CustomList:contains (Type:getConstructors this.class_type_before) params.params));
 
     params.symbols_before = (SymbolTable:enterScope this.symbols_before);
 
     delagation.symbols_before = (SymbolTable:putAll (SymbolTable:exitScope this.symbols_before) params.params);
-    delagation.constructors = this.constructors_before;
+    delagation.class_type_before = this.class_type_before;
 
-    stmts.symbols_before = (SymbolTable:put (SymbolTable:put params.symbols_after .class_type) .this_object);
+    stmts.symbols_before = (SymbolTable:put (SymbolTable:put params.symbols_after this.class_type_before) .this_object);
 
     this.symbols_after = this.symbols_before;
-    this.constructors_after = (CustomList:prepend this.constructors_before params.params);
+    this.class_type_after = (Type:addConstrcutor this.class_type_before params.params);
+  }
+}
+
+class PropertyDeclaration {
+
+  grd valid;
+  
+  syn symbol : Variable;
+
+  inh symbols_before : SymbolTable;
+
+  var_decl ("${mod: VariableModifier} ${name : DefIdentifier}${type : OptionalTypeAnnotation} ${init : OptionalVariableInitialiation}\n${getter : OptionalPropertyGetter}") {
+    type.symbols_before = this.symbols_before;
+    init.symbols_before = this.symbols_before;
+    init.expected_type = type.type;
+    init.must_initialise = false;
+    
+    name.symbols_before = this.symbols_before;
+
+    getter.symbols_before = this.symbols_before;
+    getter.has_property_initialiser = init.is_initialised;
+    getter.property_type = type.type;
+
+    this.valid = (or type.has_type init.is_initialised);
+
+    this.symbol = (Variable:create name.name (if type.has_type type.type init.type) init.is_initialised mod.is_mutable);
+  }
+}
+
+class OptionalPropertyGetter {
+  grd valid;
+  inh symbols_before : SymbolTable;
+  inh has_property_initialiser : boolean;
+  inh property_type : Type;
+
+  syn has_getter : boolean;
+  
+  no_getter ("") {
+    this.valid = this.has_property_initialiser;
+    this.has_getter = false;
+  }
+
+  getter ("get() {\+
+          ${body : FunctionBody}\-
+        }\n") {
+
+    this.valid = (not this.has_property_initialiser);
+    body.symbols_before = (SymbolTable:enterScope this.symbols_before);
+    body.expected_return_type = this.property_type;
+    this.has_getter = true;
   }
 }
 
 class OptionalConstructorDelegation {
   grd valid;
   inh symbols_before : SymbolTable;
-  inh constructors : CustomList;
+  inh class_type_before : Type;
 
   no_delegation ("") {
-    this.valid = (== (CustomList:getSize this.constructors) 0);
+    this.valid = (== (CustomList:getSize (Type:getConstructors this.class_type_before)) 0);
 
   }
 
-  delegation (": this(${args : ArgumentList})") {
-    this.valid = (> (CustomList:getSize this.constructors) 0);
-
+  delegation (": this(${chosen_params : UseConstructor}${args : ArgumentList})") {
+    this.valid = (> (CustomList:getSize (Type:getConstructors this.class_type_before)) 0);
+    chosen_params.class_type = this.class_type_before;
     args.symbols_before = this.symbols_before;
-    args.expected_params = (CustomList:random this.constructors);
+    args.expected_params = chosen_params.params;
+  }
+}
+
+class UseConstructor {
+  inh class_type : Type;
+  syn params : CustomList;
+  constructor(SymbolTable:visibleConstructors this.class_type) : CustomList {
+    this.params = $;
   }
 }
 
@@ -296,7 +332,7 @@ class FunctionDeclaration {
     params.symbols_before = (SymbolTable:enterScope this.symbols_before);
     ret_type.symbols_before = this.symbols_before;
     expr.symbols_before = params.symbols_after;
-    expr.expected_type = (if ret_type.has_type ret_type.type (SymbolTable:getAsType this.symbols_before (AnyType:name)));
+    expr.expected_type = (if ret_type.has_type ret_type.type (SymbolTable:getKotlinAnyType this.symbols_before));
     name.symbols_before = this.symbols_before;
     this.symbol = (Function:create name.name (if ret_type.has_type ret_type.type expr.type) params.params );
   }
@@ -305,7 +341,7 @@ class FunctionDeclaration {
       ("fun ${name : DefIdentifier}(${params : ParameterDeclarationList})${ret_type : OptionalTypeAnnotation} {\+
           ${body : FunctionBody}\-
         }\n") {
-    loc actual_ret_type = (if ret_type.has_type ret_type.type (SymbolTable:getAsType this.symbols_before (UnitType:name)));
+    loc actual_ret_type = (if ret_type.has_type ret_type.type (SymbolTable:getAsType this.symbols_before "Unit"));
     ret_type.symbols_before = this.symbols_before;
     params.symbols_before = (SymbolTable:enterScope this.symbols_before);
     body.symbols_before = params.symbols_after;
@@ -362,7 +398,7 @@ class MainDeclaration {
 
   main ("fun main() {\+${body : FunctionBody}\-}\n") {
     body.symbols_before = (SymbolTable:enterScope this.symbols_before);
-    body.expected_return_type = (SymbolTable:getAsType this.symbols_before (UnitType:name));
+    body.expected_return_type = (SymbolTable:getAsType this.symbols_before "Unit");
   }
 }
 
@@ -436,18 +472,19 @@ class Stmt {
 
   grd possible;
 
+  @weight(0)
   extension_func ("${extension_func : ExtensionFunctionDeclaration}") {
     this.possible = true;
 
     extension_func.symbols_before = this.symbols_before;
 
-    this.symbols_after = (SymbolTable:put this.symbols_before (Type:addExtensionFunction extension_func.type extension_func.function));
+    this.symbols_after = (SymbolTable:put this.symbols_before (Type:addMemberFunction extension_func.type extension_func.function));
   }
 
   call ("${call : Call}") {
     this.possible = true;
 
-    call.expected_type = (SymbolTable:getAsType this.symbols_before (AnyType:name));
+    call.expected_type = (SymbolTable:getKotlinAnyType this.symbols_before);
     call.symbols_before = this.symbols_before;
 
     this.symbols_after = this.symbols_before;
@@ -457,7 +494,7 @@ class Stmt {
     this.possible = true;
     
     member_function_call.symbols_before = this.symbols_before;
-    member_function_call.expected_type = (SymbolTable:getAsType this.symbols_before (AnyType:name));
+    member_function_call.expected_type = (SymbolTable:getKotlinAnyType this.symbols_before);
 
     this.symbols_after = this.symbols_before;
   }
@@ -505,8 +542,8 @@ class ExtensionFunctionDeclaration {
     this.type = type.type;
     params.symbols_before = (SymbolTable:enterScope this.symbols_before);
     ret_type.symbols_before = this.symbols_before;
-    expr.symbols_before = (SymbolTable:put (SymbolTable:putAll (SymbolTable:merge this.symbols_before (Type:getSymbolTable type.type)) params.params) .this_object);
-    expr.expected_type = (if ret_type.has_type ret_type.type (SymbolTable:getAsType this.symbols_before (AnyType:name)));
+    expr.symbols_before = (SymbolTable:put (SymbolTable:putAll (SymbolTable:merge this.symbols_before this.symbols_before) params.params) .this_object);
+    expr.expected_type = (if ret_type.has_type ret_type.type (SymbolTable:getKotlinAnyType this.symbols_before));
     name.symbols_before = this.symbols_before;
     this.function = (Function:create name.name (if ret_type.has_type ret_type.type expr.type) params.params );
   }
@@ -515,14 +552,14 @@ class ExtensionFunctionDeclaration {
       ("fun ${type : Type}.${name : DefIdentifier}(${params : ParameterDeclarationList})${ret_type : OptionalTypeAnnotation} {\+
           ${body : FunctionBody}\-
         }\n") {
-    loc actual_ret_type = (if ret_type.has_type ret_type.type (SymbolTable:getAsType this.symbols_before (UnitType:name)));
+    loc actual_ret_type = (if ret_type.has_type ret_type.type (SymbolTable:getAsType this.symbols_before "Unit"));
     loc this_object = (Variable:create "this" type.type true false);
 
     type.symbols_before = this.symbols_before;
     this.type = type.type;
     ret_type.symbols_before = this.symbols_before;
     params.symbols_before = (SymbolTable:enterScope this.symbols_before);
-    body.symbols_before = (SymbolTable:put (SymbolTable:putAll (SymbolTable:merge this.symbols_before (Type:getSymbolTable type.type)) params.params) .this_object);
+    body.symbols_before = (SymbolTable:put (SymbolTable:putAll (SymbolTable:merge this.symbols_before this.symbols_before) params.params) .this_object);
     body.expected_return_type = .actual_ret_type;
     name.symbols_before = this.symbols_before;
     this.function = (Function:create name.name .actual_ret_type params.params);
@@ -537,7 +574,7 @@ class MemberFunctionCall {
 
   member_function_call("${expr : Expr}.${member_function_callee : MemberFunctionCallee}(${args : ArgumentList})") {
     expr.symbols_before = this.symbols_before;
-    expr.expected_type = (SymbolTable:getAsType this.symbols_before (AnyType:name));
+    expr.expected_type = (SymbolTable:getKotlinAnyType this.symbols_before);
 
     member_function_callee.expected_return_type = this.expected_type;
     member_function_callee.callee_type = (SymbolTable:getAsType this.symbols_before (Symbol:getName expr.type));
@@ -664,7 +701,7 @@ class AssignableExpr {
 
   @weight(1)
   variable ("${var : UseVariableIdentifier}") {
-    var.expected_type = (SymbolTable:getAsType this.symbols_before (AnyType:name));
+    var.expected_type = (SymbolTable:getKotlinAnyType this.symbols_before);
     var.symbols_before = this.symbols_before;
     this.symbol = var.symbol;
     this.is_property = false;
@@ -673,9 +710,9 @@ class AssignableExpr {
   @weight(5)
   property ("${class_type : Expr}.${property : UsePropertyIdentifier}") {
     class_type.symbols_before = this.symbols_before;
-    class_type.expected_type = (SymbolTable:getAsType this.symbols_before (AnyType:name));
+    class_type.expected_type = (SymbolTable:getKotlinAnyType this.symbols_before);
     property.class_type = class_type.type;
-    property.expected_type = (SymbolTable:getAsType this.symbols_before (AnyType:name));
+    property.expected_type = (SymbolTable:getKotlinAnyType this.symbols_before);
     this.symbol = property.symbol;
     this.is_property = true;
   }
@@ -736,7 +773,7 @@ class OptionalVariableInitialiation {
     this.valid = (not this.must_initialise);
 
     this.is_initialised = false;
-    this.type = (SymbolTable:getAsType this.symbols_before (AnyType:name));
+    this.type = (SymbolTable:getKotlinAnyType this.symbols_before);
   }
 
   init("= ${expr : Expr}") {
@@ -757,7 +794,7 @@ class OptionalTypeAnnotation {
   syn has_type : boolean;
 
   no_type_annotation("") {
-    this.type = (SymbolTable:getAsType this.symbols_before (AnyType:name));
+    this.type = (SymbolTable:getKotlinAnyType this.symbols_before);
     this.has_type = false;
   }
 
@@ -772,8 +809,8 @@ class Type {
   inh symbols_before: SymbolTable;
   syn type : Type;
 
-  type (SymbolTable:visibleTypeNames this.symbols_before) : String {
-    this.type = (SymbolTable:getAsType this.symbols_before $);
+  type (SymbolTable:visibleTypes this.symbols_before) : Type {
+    this.type = $;
   }
 }
 
@@ -794,7 +831,7 @@ class Print {
 
   print ("print (${expr: Expr})") {
     expr.symbols_before = this.symbols_before;
-    expr.expected_type = (SymbolTable:getAsType this.symbols_before (AnyType:name));
+    expr.expected_type = (SymbolTable:getKotlinAnyType this.symbols_before);
   }
 }
 
@@ -861,7 +898,7 @@ class Expr {
     this.valid2 = true;
 
     class_type.symbols_before = this.symbols_before;
-    class_type.expected_type = (SymbolTable:getAsType this.symbols_before (AnyType:name));
+    class_type.expected_type = (SymbolTable:getKotlinAnyType this.symbols_before);
     property.class_type = class_type.type;
     property.expected_type = this.expected_type;
     this.type = (Variable:getType property.symbol);
@@ -878,7 +915,7 @@ class Expr {
   }
 
   arith_bin_op ("((${lhs : Expr}) ${op : ArithBinaryOperator} (${rhs : Expr}))") {
-    loc int_type = (SymbolTable:getAsType this.symbols_before (IntType:name));
+    loc int_type = (SymbolTable:getAsType this.symbols_before "Int");
     this.valid2 = true;
 
     lhs.symbols_before = this.symbols_before;
@@ -892,7 +929,7 @@ class Expr {
   }
 
   bool_bin_op ("((${lhs : Expr}) ${op : BoolBinaryOperator} (${rhs : Expr}))") {
-    loc bool_type = (SymbolTable:getAsType this.symbols_before (BooleanType:name));
+    loc bool_type = (SymbolTable:getAsType this.symbols_before "Boolean");
     this.valid2 = true;
 
     lhs.symbols_before = this.symbols_before;
@@ -906,7 +943,7 @@ class Expr {
   }
 
   bool_unary_op ("(${op: BoolUnaryOperator}(${exp: Expr}))") {
-    loc bool_type = (SymbolTable:getAsType this.symbols_before (BooleanType:name));
+    loc bool_type = (SymbolTable:getAsType this.symbols_before "Boolean");
     this.valid2 = true;
 
     exp.symbols_before = this.symbols_before;
@@ -920,26 +957,26 @@ class Expr {
     this.valid2 = true;
 
     lhs.symbols_before = this.symbols_before;
-    lhs.expected_type = (SymbolTable:getAsType this.symbols_before (AnyType:name));
+    lhs.expected_type = (SymbolTable:getKotlinAnyType this.symbols_before);
 
     rhs.symbols_before = this.symbols_before;
     rhs.expected_type = lhs.type;
 
-    this.valid = (Type:assignable (SymbolTable:getAsType this.symbols_before (BooleanType:name)) this.expected_type);
-    this.type = (SymbolTable:getAsType this.symbols_before (BooleanType:name));
+    this.valid = (Type:assignable (SymbolTable:getAsType this.symbols_before "Boolean") this.expected_type);
+    this.type = (SymbolTable:getAsType this.symbols_before "Boolean");
   }
 
   comparison_bin_op ("((${lhs: Expr}) ${op : ComparisonOp} (${rhs : Expr}))") {
     lhs.symbols_before = this.symbols_before;
-    lhs.expected_type = (SymbolTable:getAsType this.symbols_before (AnyType:name));
+    lhs.expected_type = (SymbolTable:getKotlinAnyType this.symbols_before);
     
-    this.valid2 = (not (Type:is lhs.type (SymbolTable:getAsType this.symbols_before (AnyType:name))));
+    this.valid2 = true;
 
     rhs.symbols_before = this.symbols_before;
     rhs.expected_type = lhs.type;
 
-    this.valid = (and (Type:assignable (SymbolTable:getAsType this.symbols_before (BooleanType:name)) this.expected_type) false);
-    this.type = (SymbolTable:getAsType this.symbols_before (BooleanType:name));
+    this.valid = (and (Type:assignable (SymbolTable:getAsType this.symbols_before "Boolean") this.expected_type) false);
+    this.type = (SymbolTable:getAsType this.symbols_before "Boolean");
   }
 }
 
@@ -978,21 +1015,21 @@ class ExprAtom {
   }
 
   string_literal ("${str: StringLiteral}") {
-    loc type = (SymbolTable:getAsType this.symbols_before (StringType:name));
+    loc type = (SymbolTable:getAsType this.symbols_before "String");
     this.valid = (Type:assignable .type this.expected_type);
 
     this.type = .type;
   }
 
   boolean_literal ("${bool: BooleanLiteral}") {
-    loc type = (SymbolTable:getAsType this.symbols_before (BooleanType:name));
+    loc type = (SymbolTable:getAsType this.symbols_before "Boolean");
     this.valid = (Type:assignable .type this.expected_type);
 
     this.type = .type;
   }
 
   char_literal ("${char: CharLiteral}") {
-    loc type = (SymbolTable:getAsType this.symbols_before (CharType:name));
+    loc type = (SymbolTable:getAsType this.symbols_before "Char");
     this.valid = (Type:assignable .type this.expected_type);
 
     this.type = .type;
@@ -1023,8 +1060,8 @@ class UseVariableIdentifier {
 
   syn symbol : Variable;
 
-  use_id (SymbolTable:visibleVariableNames this.symbols_before this.expected_type) : String {
-    this.symbol = (Symbol:asVariable (SymbolTable:get this.symbols_before $));
+  use_id (SymbolTable:visibleVariables this.symbols_before this.expected_type) : Variable {
+    this.symbol = $;
   }
 
 }
@@ -1036,8 +1073,8 @@ class UsePropertyIdentifier {
 
   syn symbol : Variable;
 
-  use_id (SymbolTable:visiblePropertyNames this.class_type this.expected_type) : String {
-    this.symbol = (Symbol:asVariable (SymbolTable:get (Type:getSymbolTable this.class_type) $));
+  use_id (SymbolTable:visibleProperties this.class_type this.expected_type) : Variable {
+    this.symbol = $;
   }
 }
 
@@ -1048,8 +1085,8 @@ class UseFunctionIdentifier {
 
   syn symbol : Function;
 
-  use_id (SymbolTable:visibleFunctionNames this.symbols_before this.expected_return_type) : String {
-    this.symbol = (Symbol:asFunction (SymbolTable:get this.symbols_before $));
+  use_id (SymbolTable:visibleFunctions this.symbols_before this.expected_return_type) : Function {
+    this.symbol = $;
   }
 
 }
@@ -1061,8 +1098,8 @@ class UseMemberFunctionIdentifier {
 
   syn symbol : Function;
 
-  use_id (SymbolTable:visibleMemberFunctionNames this.callee_type this.expected_return_type) : String {
-    this.symbol = (Symbol:asFunction (SymbolTable:get (Type:getSymbolTable this.callee_type) $));
+  use_id (SymbolTable:visibleMemberFunctions this.callee_type this.expected_return_type) : Function {
+    this.symbol = $;
   }
 
 }
@@ -1075,7 +1112,7 @@ class Number {
   grd type_matches;
 
   int_number ("${num : IntNumber}") {
-    loc type = (SymbolTable:getAsType this.symbols_before (IntType:name));
+    loc type = (SymbolTable:getAsType this.symbols_before "Int");
     this.type_matches = (Type:assignable .type this.expected_type);
     this.type = .type;
   }

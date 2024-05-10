@@ -24,6 +24,24 @@ public class CustomList<T> implements Printable {
   public CustomList() {
     this.items = new ArrayList<>();
   }
+
+  public void add(T item) {
+    this.items.add(item);
+  }
+
+  public void add(T... itemsToAdd) {
+    for (T item : itemsToAdd) {
+      this.items.add(item);
+    }
+  }
+
+  public CustomList<T> clone() {
+    CustomList<T> newList = new CustomList<>();
+    for (T item : this.items) {
+      newList.add(item);
+    }
+    return newList;
+  }
     
   public static <U> CustomList<U> create(U item) {
     return new CustomList<U>(item);
@@ -103,6 +121,6 @@ public class CustomList<T> implements Printable {
 
   @Override
   public final String print() {
-    return this.items.toString();
+    return "";
   }
 }
