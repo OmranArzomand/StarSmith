@@ -82,7 +82,7 @@ class ClassDeclaration {
     ident.symbols_before = this.symbols_before;
     primary_constructor.symbols_before = (SymbolTable:enterScope this.symbols_before);
     body.symbols_before = primary_constructor.symbols_after;
-    body.class_type_before = (Type:addSupertype (Type:create ident.name (if (== primary_constructor.params nil) (CustomList:empty) (CustomList:create primary_constructor.params))) (SymbolTable:getKotlinAnyType this.symbols_before));
+    body.class_type_before = (Type:addSupertype (Type:create ident.name (if (== primary_constructor.params nil) (CustomList:empty) (CustomList:create primary_constructor.params)) primary_constructor.property_constrcutor_params) (SymbolTable:getKotlinAnyType this.symbols_before));
     body.non_property_constrcutor_params = primary_constructor.non_property_constrcutor_params;
     this.symbol = body.class_type_after;
   }
@@ -255,10 +255,12 @@ class OptionalPrimaryConstructor {
   syn symbols_after : SymbolTable;
   syn params : CustomList;
   syn non_property_constrcutor_params : CustomList;
+  syn property_constrcutor_params : CustomList;
 
   no_constructor("") {
     this.params = nil;
     this.non_property_constrcutor_params = (CustomList:empty);
+    this.property_constrcutor_params = (CustomList:empty);
     this.symbols_after = this.symbols_before;
   }
 
@@ -268,6 +270,7 @@ class OptionalPrimaryConstructor {
     this.symbols_after = constructorList.symbols_after;
     this.params = constructorList.params;
     this.non_property_constrcutor_params = constructorList.non_property_constrcutor_params;
+    this.property_constrcutor_params = constructorList.property_constrcutor_params;
   }
 }
 
@@ -276,11 +279,13 @@ class ConstructorList {
   syn symbols_after : SymbolTable;
   syn params : CustomList;
   syn non_property_constrcutor_params : CustomList;
+  syn property_constrcutor_params : CustomList;
 
   no_param ("") {
     this.symbols_after = this.symbols_before;
     this.params = (CustomList:empty);
     this.non_property_constrcutor_params = (CustomList:empty);
+    this.property_constrcutor_params = (CustomList:empty);
   }
 
   @weight(10)
@@ -290,6 +295,7 @@ class ConstructorList {
     this.symbols_after = rest.symbols_after;
     this.params = (CustomList:prepend rest.params param.symbol);
     this.non_property_constrcutor_params = (if param.add_to_properties rest.non_property_constrcutor_params (CustomList:prepend rest.non_property_constrcutor_params param.symbol));
+    this.property_constrcutor_params = (if param.add_to_properties (CustomList:prepend rest.property_constrcutor_params param.symbol) rest.property_constrcutor_params);
   }
 }
 
@@ -892,18 +898,7 @@ class Expr {
     this.type = atom.type;
   }
 
-  @weight(0)
-  property ("${class_type : Expr}.${property : UsePropertyIdentifier}") {
-    this.valid = true;
-    this.valid2 = true;
-
-    class_type.symbols_before = this.symbols_before;
-    class_type.expected_type = (SymbolTable:getKotlinAnyType this.symbols_before);
-    property.class_type = class_type.type;
-    property.expected_type = this.expected_type;
-    this.type = (Variable:getType property.symbol);
-  }
-
+  
   member_function_call ("${member_function_call : MemberFunctionCall}") {
     this.valid = true;
     this.valid2 = true;
@@ -1005,6 +1000,18 @@ class ExprAtom {
 
     this.type = call.type;
   }
+
+  property ("${ident : UseVariableIdentifier}.${property : UsePropertyIdentifier}") {
+    this.valid = (Variable:getIsInitialised ident.symbol);
+
+    ident.symbols_before = this.symbols_before;
+    ident.expected_type = (SymbolTable:getKotlinAnyType this.symbols_before);
+
+    property.class_type = (Variable:getType ident.symbol);
+    property.expected_type = this.expected_type;
+    this.type = (Variable:getType property.symbol);
+  }
+
 
   num ("${val : Number}") {
     this.valid = true;

@@ -23,6 +23,15 @@ public class Type extends Symbol implements Printable{
     this.supertypes = new CustomList<>();
   }
 
+  public Type(String name, CustomList<CustomList<Variable>> constructors, CustomList<Variable> properties) {
+    super(name);
+    this.constructors = constructors;
+    this.memberFunctions = new CustomList<>();
+    this.properties = properties;
+    this.supertypes = new CustomList<>();
+  }
+
+
   public Type(String name, CustomList<CustomList<Variable>> constructors, 
     CustomList<Function> memberFunctions, CustomList<Variable> properties, CustomList<Type> superTypes) {
       super(name);
@@ -111,6 +120,10 @@ public class Type extends Symbol implements Printable{
 
   public static Type create(String name, CustomList<CustomList<Variable>> constructors) {
     return new Type(name, constructors);
+  }
+
+  public static Type create(String name, CustomList<CustomList<Variable>> constructors, CustomList<Variable> properties) {
+    return new Type(name, constructors, properties);
   }
 
   @Override
