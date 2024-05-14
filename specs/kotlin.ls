@@ -78,13 +78,40 @@ class ClassDeclaration {
   syn symbol : Type;
   inh symbols_before : SymbolTable;
 
-  class_decl("class ${ident : DefIdentifier}${primary_constructor : OptionalPrimaryConstructor} {\+${body : ClassMemberList}\-}\n") {
+  class_decl("${open : OptionalOpen}${class_or_interface : ClassOrInterface} ${ident : DefIdentifier}${primary_constructor : OptionalPrimaryConstructor} {\+${body : ClassMemberList}\-}\n") {
     ident.symbols_before = this.symbols_before;
     primary_constructor.symbols_before = (SymbolTable:enterScope this.symbols_before);
+    primary_constructor.is_interface = class_or_interface.is_interface;
     body.symbols_before = primary_constructor.symbols_after;
-    body.class_type_before = (Type:addSupertype (Type:create ident.name (if (== primary_constructor.params nil) (CustomList:empty) (CustomList:create primary_constructor.params)) primary_constructor.property_constrcutor_params) (SymbolTable:getKotlinAnyType this.symbols_before));
+    body.class_type_before = (Type:addSupertype (Type:create ident.name class_or_interface.is_interface (or open.is_open class_or_interface.is_interface) (if (== primary_constructor.params nil) (CustomList:empty) (CustomList:create primary_constructor.params)) primary_constructor.property_constrcutor_params) (SymbolTable:getKotlinAnyType this.symbols_before));
     body.non_property_constrcutor_params = primary_constructor.non_property_constrcutor_params;
     this.symbol = body.class_type_after;
+  }
+}
+
+class ClassOrInterface {
+  syn is_interface : Boolean;
+
+  @weight(8)
+  class_("class") {
+    this.is_interface = false;
+  }
+
+  @weight(2)
+  interface("interface") {
+    this.is_interface = true;
+  }
+}
+
+class OptionalOpen {
+  syn is_open : Boolean;
+
+  no_open("") {
+    this.is_open = false;
+  }
+
+  open("open ") {
+    this.is_open = true;
   }
 }
 
@@ -122,6 +149,7 @@ class ClassMemberList {
 
 class ClassMember {
   grd valid;
+  grd valid2;
 
   inh symbols_before : SymbolTable;
   inh class_type_before : Type;
@@ -133,6 +161,7 @@ class ClassMember {
   @weight(0)
   property ("${decl : PropertyDeclaration}") {
     this.valid = true;
+    this.valid2 = true;
 
     decl.symbols_before = (SymbolTable:putAll this.symbols_before this.non_property_constrcutor_params);
     this.symbols_after = (SymbolTable:put this.symbols_before decl.symbol);
@@ -140,7 +169,8 @@ class ClassMember {
   }
 
   init ("init {\+${stmts : StmtList}\-}") {
-    this.valid = true;
+    this.valid = (not (Type:isInterface this.class_type_before));
+    this.valid2 = true;
 
     stmts.symbols_before = (SymbolTable:enterScope (SymbolTable:putAll this.symbols_before this.non_property_constrcutor_params));
 
@@ -150,6 +180,7 @@ class ClassMember {
 
   member_function ("${func : FunctionDeclaration}") {
     this.valid = true;
+    this.valid2 = true;
 
     func.symbols_before = this.symbols_before;
 
@@ -161,6 +192,7 @@ class ClassMember {
     loc this_object = (Variable:create "this" this.class_type_before true false);
 
     this.valid = (not (CustomList:contains (Type:getConstructors this.class_type_before) params.params));
+    this.valid2 = (not (Type:isInterface this.class_type_before));
 
     params.symbols_before = (SymbolTable:enterScope this.symbols_before);
 
@@ -251,13 +283,16 @@ class UseConstructor {
 }
 
 class OptionalPrimaryConstructor {
+  grd valid;
   inh symbols_before : SymbolTable;
+  inh is_interface : boolean;
   syn symbols_after : SymbolTable;
   syn params : CustomList;
   syn non_property_constrcutor_params : CustomList;
   syn property_constrcutor_params : CustomList;
 
   no_constructor("") {
+    this.valid = true;
     this.params = nil;
     this.non_property_constrcutor_params = (CustomList:empty);
     this.property_constrcutor_params = (CustomList:empty);
@@ -266,6 +301,7 @@ class OptionalPrimaryConstructor {
 
   @weight(100)
   constructor("(${constructorList: ConstructorList})") {
+    this.valid = (not this.is_interface);
     constructorList.symbols_before = this.symbols_before;
     this.symbols_after = constructorList.symbols_after;
     this.params = constructorList.params;
@@ -898,7 +934,7 @@ class Expr {
     this.type = atom.type;
   }
 
-  
+
   member_function_call ("${member_function_call : MemberFunctionCall}") {
     this.valid = true;
     this.valid2 = true;

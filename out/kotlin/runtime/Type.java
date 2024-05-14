@@ -10,6 +10,8 @@ import java.util.ArrayList;
 import javax.lang.model.element.VariableElement;
 
 public class Type extends Symbol implements Printable{
+  public final boolean isOpen;
+  public final boolean isInterface;
   public final CustomList<CustomList<Variable>> constructors;
   public final CustomList<Function> memberFunctions;
   public final CustomList<Variable> properties;
@@ -17,14 +19,18 @@ public class Type extends Symbol implements Printable{
 
   public Type(String name, CustomList<CustomList<Variable>> constructors) {
     super(name);
+    this.isInterface = false;
+    this.isOpen = false;
     this.constructors = constructors;
     this.memberFunctions = new CustomList<>();
     this.properties = new CustomList<>();
     this.supertypes = new CustomList<>();
   }
 
-  public Type(String name, CustomList<CustomList<Variable>> constructors, CustomList<Variable> properties) {
+  public Type(String name, boolean isInterface, boolean isOpen, CustomList<CustomList<Variable>> constructors, CustomList<Variable> properties) {
     super(name);
+    this.isInterface = isInterface;
+    this.isOpen = isOpen;
     this.constructors = constructors;
     this.memberFunctions = new CustomList<>();
     this.properties = properties;
@@ -32,9 +38,11 @@ public class Type extends Symbol implements Printable{
   }
 
 
-  public Type(String name, CustomList<CustomList<Variable>> constructors, 
+  public Type(String name, boolean isInterface, boolean isOpen, CustomList<CustomList<Variable>> constructors, 
     CustomList<Function> memberFunctions, CustomList<Variable> properties, CustomList<Type> superTypes) {
       super(name);
+      this.isInterface = isInterface;
+      this.isOpen = isOpen;
       this.constructors = constructors;
       this.memberFunctions = memberFunctions;
       this.properties = properties;
@@ -43,6 +51,8 @@ public class Type extends Symbol implements Printable{
 
   public Type(String name) {
     super(name);
+    this.isInterface = false;
+    this.isOpen = false;
     this.constructors = new CustomList<>();
     this.memberFunctions = new CustomList<>();
     this.properties = new CustomList<>();
@@ -51,7 +61,7 @@ public class Type extends Symbol implements Printable{
 
   @Override
   public Type clone() {
-    return new Type(name, constructors.clone(), memberFunctions.clone(), properties.clone(), supertypes.clone());
+    return new Type(name, isInterface, isOpen, constructors.clone(), memberFunctions.clone(), properties.clone(), supertypes.clone());
   }
 
 
@@ -70,6 +80,10 @@ public class Type extends Symbol implements Printable{
 
   public static boolean isUnitType(Type type) {
     return type.name.equals("Unit");
+  }
+
+  public static boolean isInterface(Type type) {
+    return type.isInterface;
   }
 
   public static Type addMemberFunction(Type type, Function function) {
@@ -122,8 +136,8 @@ public class Type extends Symbol implements Printable{
     return new Type(name, constructors);
   }
 
-  public static Type create(String name, CustomList<CustomList<Variable>> constructors, CustomList<Variable> properties) {
-    return new Type(name, constructors, properties);
+  public static Type create(String name, boolean isInterface, boolean isOpen, CustomList<CustomList<Variable>> constructors, CustomList<Variable> properties) {
+    return new Type(name, isInterface, isOpen, constructors, properties);
   }
 
   @Override
