@@ -4,6 +4,8 @@ import i2.act.fuzzer.runtime.Printable;
 import java.util.Objects;
 import java.util.List;
 import java.util.ArrayList;
+import java.util.Map;
+import java.util.HashMap;
 
 public class Function extends Symbol implements Printable {
 
@@ -49,6 +51,16 @@ public class Function extends Symbol implements Printable {
       && Objects.equals(this.returnType, otherFunction.returnType)
       && Objects.equals(this.params, otherFunction.params);
   }
+
+  public static final Map<String, List<String>> operatorNameToSymbols = new HashMap<>() {{
+    put("plus", List.of("+"));
+    put("times", List.of("*"));
+    put("div", List.of("/"));
+    put("rem", List.of("%"));
+    put("minus", List.of("-"));
+    put("compareTo", List.of(">", "<", ">=", "<="));
+    put("equals", List.of("==", "!="));
+  }};
 
   @Override
   public int hashCode() {

@@ -13,6 +13,7 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Set;
 
 public class Fuzzer {
@@ -879,9 +880,8 @@ public class Fuzzer {
         continue;
       }
 
-      // XXX NOTE: this assumes that the reference of the generator value does not change!
       if (production.generatorValue != null
-          && production.generatorValue == currentProduction.generatorValue) {
+          && Objects.equals(production.generatorValue, currentProduction.generatorValue)) {
         continue;
       }
 

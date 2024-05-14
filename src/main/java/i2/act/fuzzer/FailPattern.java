@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 public final class FailPattern {
@@ -430,10 +431,9 @@ public final class FailPattern {
       return true;
     }
 
-    // XXX NOTE: this assumes that the reference of the generator value does not change!
     if (this.production.generatorValue != null
         && tree.getProduction() != null
-        && this.production.generatorValue == tree.getProduction().generatorValue) {
+        && Objects.equals(this.production.generatorValue, tree.getProduction().generatorValue)) {
       return true;
     }
 

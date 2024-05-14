@@ -16,6 +16,13 @@ public class Variable extends Symbol implements Printable {
     this.isMutable = isMutable;
   }
 
+  public Variable(Type type) {
+    super("x");
+    this.type = type;
+    this.isInitialised = true;
+    this.isMutable = false;
+  }
+
   public static final Variable create(String name, Type type, boolean isInitialised, boolean isMutable) {
     return new Variable(name, type, isInitialised, isMutable);
   }

@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 
 public abstract class Production implements ProductionNode {
 
@@ -191,11 +192,10 @@ public abstract class Production implements ProductionNode {
       return false;
     }
 
-    // XXX NOTE: this assumes that the reference of the generator value does not change!
     final Production otherProduction = (Production) other;
     return this.id == otherProduction.id
         && this.ownClass.equals(otherProduction.ownClass)
-        && this.generatorValue == otherProduction.generatorValue;
+        && Objects.equals(this.generatorValue, otherProduction.generatorValue);
   }
 
   @Override

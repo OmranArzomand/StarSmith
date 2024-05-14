@@ -16,20 +16,34 @@ public final class SymbolTable {
     Type anyType = new Type("Any");
     symbolTable.put(anyType);
 
-    Type intType = new Type("Int");
-    intType.supertypes.add(anyType);
-    symbolTable.put(intType);
-
     Type booleanType = new Type("Boolean");
     booleanType.supertypes.add(anyType);
+    booleanType.operators.add(new Function("compareTo", booleanType, new CustomList<>(new Variable(booleanType))));
+    booleanType.operators.add(new Function("equals", booleanType, new CustomList<>(new Variable(booleanType))));
     symbolTable.put(booleanType);
+
+    Type intType = new Type("Int");
+    intType.supertypes.add(anyType);
+    intType.operators.add(new Function("plus", intType, new CustomList<>(new Variable(intType))));
+    intType.operators.add(new Function("minus", intType, new CustomList<>(new Variable(intType))));
+    intType.operators.add(new Function("times", intType, new CustomList<>(new Variable(intType))));
+    intType.operators.add(new Function("div", intType, new CustomList<>(new Variable(intType))));
+    intType.operators.add(new Function("rem", intType, new CustomList<>(new Variable(intType))));
+    intType.operators.add(new Function("compareTo", booleanType, new CustomList<>(new Variable(intType))));
+    intType.operators.add(new Function("equals", booleanType, new CustomList<>(new Variable(intType))));
+    symbolTable.put(intType);
+
 
     Type stringType = new Type("String");
     stringType.supertypes.add(anyType);
+    stringType.operators.add(new Function("compareTo", booleanType, new CustomList<>(new Variable(stringType))));
+    stringType.operators.add(new Function("equals", booleanType, new CustomList<>(new Variable(stringType))));
     symbolTable.put(stringType);
 
     Type charType = new Type("Char");
     charType.supertypes.add(anyType);
+    charType.operators.add(new Function("compareTo", booleanType, new CustomList<>(new Variable(charType))));
+    charType.operators.add(new Function("equals", booleanType, new CustomList<>(new Variable(charType))));
     symbolTable.put(charType);
 
     Type unitType = new Type("Unit");
@@ -157,6 +171,22 @@ public final class SymbolTable {
     }
 
     return flattened;
+  }
+
+  public static final List<GeneratorResult> visibleBinaryOperators(final Type classType, final Type expectedType) {
+    final List<GeneratorResult> operators = new LinkedList<>();
+
+
+    for (Function operator : classType.operators.items) {
+      if (operator.params.items.size() == 1 
+          && (expectedType == null || Type.assignable(operator.returnType, expectedType))) {
+            for (String opSymbol : Function.operatorNameToSymbols.get(operator.name)) {
+              operators.add(new GeneratorResult(List.of(opSymbol, operator)));
+            }
+          }
+    }
+    System.out.println(operators);
+    return operators;
   }
 
   public static final List<Type> visibleTypes(final SymbolTable symbolTable) {

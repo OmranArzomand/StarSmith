@@ -12,6 +12,7 @@ import javax.lang.model.element.VariableElement;
 public class Type extends Symbol implements Printable{
   public final CustomList<CustomList<Variable>> constructors;
   public final CustomList<Function> memberFunctions;
+  public final CustomList<Function> operators;
   public final CustomList<Variable> properties;
   public final CustomList<Type> supertypes;
 
@@ -19,6 +20,7 @@ public class Type extends Symbol implements Printable{
     super(name);
     this.constructors = constructors;
     this.memberFunctions = new CustomList<>();
+    this.operators = new CustomList<>();
     this.properties = new CustomList<>();
     this.supertypes = new CustomList<>();
   }
@@ -27,16 +29,18 @@ public class Type extends Symbol implements Printable{
     super(name);
     this.constructors = constructors;
     this.memberFunctions = new CustomList<>();
+    this.operators = new CustomList<>();
     this.properties = properties;
     this.supertypes = new CustomList<>();
   }
 
 
-  public Type(String name, CustomList<CustomList<Variable>> constructors, 
-    CustomList<Function> memberFunctions, CustomList<Variable> properties, CustomList<Type> superTypes) {
+  public Type(String name, CustomList<CustomList<Variable>> constructors, CustomList<Function> memberFunctions,
+    CustomList<Function> operators, CustomList<Variable> properties, CustomList<Type> superTypes) {
       super(name);
       this.constructors = constructors;
       this.memberFunctions = memberFunctions;
+      this.operators = operators;
       this.properties = properties;
       this.supertypes = superTypes;
     }
@@ -45,13 +49,14 @@ public class Type extends Symbol implements Printable{
     super(name);
     this.constructors = new CustomList<>();
     this.memberFunctions = new CustomList<>();
+    this.operators = new CustomList<>();
     this.properties = new CustomList<>();
     this.supertypes = new CustomList<>();
   }
 
   @Override
   public Type clone() {
-    return new Type(name, constructors.clone(), memberFunctions.clone(), properties.clone(), supertypes.clone());
+    return new Type(name, constructors.clone(), memberFunctions.clone(), operators.clone(), properties.clone(), supertypes.clone());
   }
 
 

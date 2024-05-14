@@ -4,6 +4,7 @@ use Type;
 use Function;
 use CustomList;
 use Variable;
+use GeneratorResult;
 
 class Program {
   prog("${decls : OptionalGlobalDeclarationList}
@@ -909,73 +910,39 @@ class Expr {
     this.type = member_function_call.type;
   }
 
-  arith_bin_op ("((${lhs : Expr}) ${op : ArithBinaryOperator} (${rhs : Expr}))") {
-    loc int_type = (SymbolTable:getAsType this.symbols_before "Int");
+  binary_op ("(${lhs : ExprAtom} ${op : BinaryOperator} ${rhs : Expr})") {
+    this.valid = true;
     this.valid2 = true;
 
-    lhs.symbols_before = this.symbols_before;
-    lhs.expected_type = .int_type;
+    op.expected_type = this.expected_type;
+    op.symbols_before = this.symbols_before;
+    op.class_type = lhs.type;
 
-    rhs.symbols_before = this.symbols_before;
-    rhs.expected_type = .int_type;
-
-    this.valid = (Type:assignable .int_type this.expected_type);
-    this.type = .int_type;
-  }
-
-  bool_bin_op ("((${lhs : Expr}) ${op : BoolBinaryOperator} (${rhs : Expr}))") {
-    loc bool_type = (SymbolTable:getAsType this.symbols_before "Boolean");
-    this.valid2 = true;
-
-    lhs.symbols_before = this.symbols_before;
-    lhs.expected_type = .bool_type;
-
-    rhs.symbols_before = this.symbols_before;
-    rhs.expected_type = .bool_type;
-
-    this.valid = (Type:assignable .bool_type this.expected_type);
-    this.type = .bool_type;
-  }
-
-  bool_unary_op ("(${op: BoolUnaryOperator}(${exp: Expr}))") {
-    loc bool_type = (SymbolTable:getAsType this.symbols_before "Boolean");
-    this.valid2 = true;
-
-    exp.symbols_before = this.symbols_before;
-    exp.expected_type = .bool_type;
-
-    this.valid = (Type:assignable .bool_type this.expected_type);
-    this.type = .bool_type;
-  }
-
-  equality_bin_op ("((${lhs : Expr}) ${op : EqualityOp} (${rhs : Expr}))") {
-    this.valid2 = true;
-
-    lhs.symbols_before = this.symbols_before;
     lhs.expected_type = (SymbolTable:getKotlinAnyType this.symbols_before);
-
-    rhs.symbols_before = this.symbols_before;
-    rhs.expected_type = lhs.type;
-
-    this.valid = (Type:assignable (SymbolTable:getAsType this.symbols_before "Boolean") this.expected_type);
-    this.type = (SymbolTable:getAsType this.symbols_before "Boolean");
-  }
-
-  comparison_bin_op ("((${lhs: Expr}) ${op : ComparisonOp} (${rhs : Expr}))") {
     lhs.symbols_before = this.symbols_before;
-    lhs.expected_type = (SymbolTable:getKotlinAnyType this.symbols_before);
-    
-    this.valid2 = true;
 
+    rhs.expected_type = op.rhs_type;
     rhs.symbols_before = this.symbols_before;
-    rhs.expected_type = lhs.type;
 
-    this.valid = (and (Type:assignable (SymbolTable:getAsType this.symbols_before "Boolean") this.expected_type) false);
-    this.type = (SymbolTable:getAsType this.symbols_before "Boolean");
+    this.type = op.result_type;
   }
 }
 
-class ArithBinaryOperator("+|-|*|/|%");
+class BinaryOperator {
+  inh symbols_before : SymbolTable;
+  inh expected_type : Type;
+  inh class_type : Type;
+
+  syn rhs_type : Type;
+  syn result_type : Type;
+
+  op (SymbolTable:visibleBinaryOperators this.class_type this.expected_type) : GeneratorResult {
+    loc operator = (GeneratorResult:asFunction (GeneratorResult:get $ 1));
+    this.result_type = (Function:getReturnType .operator);
+    this.rhs_type = (Variable:getType (CustomList:get (Function:getParams .operator) 0));
+  }
+  
+}
 
 class BoolBinaryOperator("&&|[|][|]");
 
