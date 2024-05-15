@@ -63,6 +63,7 @@ class GlobalDeclaration {
   inh symbols_before : SymbolTable;
 
   global_func_decl ("${func_decl : FunctionDeclaration}") {
+    func_decl.in_interface = false;
     func_decl.symbols_before = this.symbols_before;
     this.symbols_after = (SymbolTable:put this.symbols_before func_decl.symbol);
   }
@@ -183,6 +184,7 @@ class ClassMember {
     this.valid2 = true;
 
     func.symbols_before = this.symbols_before;
+    func.in_interface = (Type:isInterface this.class_type_before);
 
     this.symbols_after = (SymbolTable:put this.symbols_before func.symbol);
     this.class_type_after = (Type:addMemberFunction this.class_type_before func.symbol);
@@ -431,14 +433,27 @@ class ConstructorParameterDeclaration {
 }
 
 class FunctionDeclaration {
+  grd valid;
 
   syn symbol : Function;
 
   inh symbols_before : SymbolTable;
+  inh in_interface : boolean;
+
+  func_decl_no_body ("fun ${name : DefIdentifier}(${params : ParameterDeclarationList})${ret_type : OptionalTypeAnnotation}") {
+    this.valid = this.in_interface;
+    name.symbols_before = this.symbols_before;
+    params.symbols_before = (SymbolTable:enterScope this.symbols_before);
+    ret_type.symbols_before = this.symbols_before;
+    ret_type.required = true;
+    this.symbol = (Function:create name.name ret_type.type params.params);
+
+  }
 
   func_decl_expr
       ("fun ${name : DefIdentifier}(${params : ParameterDeclarationList})${ret_type : OptionalTypeAnnotation} = ${expr: Expr}") {
-      
+    
+    this.valid = true;
     params.symbols_before = (SymbolTable:enterScope this.symbols_before);
     ret_type.symbols_before = this.symbols_before;
     ret_type.required = false;
@@ -453,6 +468,7 @@ class FunctionDeclaration {
           ${body : FunctionBody}\-
         }\n") {
     loc actual_ret_type = (if ret_type.has_type ret_type.type (SymbolTable:getAsType this.symbols_before "Unit"));
+    this.valid = true;
     ret_type.symbols_before = this.symbols_before;
     ret_type.required = false;
     params.symbols_before = (SymbolTable:enterScope this.symbols_before);
