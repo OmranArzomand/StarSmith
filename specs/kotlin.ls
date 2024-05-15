@@ -158,12 +158,12 @@ class ClassMember {
   syn symbols_after : SymbolTable;
   syn class_type_after : Type;
 
-  @weight(0)
   property ("${decl : PropertyDeclaration}") {
     this.valid = true;
     this.valid2 = true;
 
-    decl.symbols_before = (SymbolTable:putAll this.symbols_before this.non_property_constrcutor_params);
+    decl.symbols_before = this.symbols_before;
+    decl.is_interface = (Type:isInterface this.class_type_before);
     this.symbols_after = (SymbolTable:put this.symbols_before decl.symbol);
     this.class_type_after = (Type:addProperty this.class_type_before decl.symbol);
   }
@@ -206,27 +206,36 @@ class ClassMember {
   }
 }
 
-class PropertyDeclaration {
-
-  grd valid;
-  
+class PropertyDeclaration {  
   syn symbol : Variable;
 
   inh symbols_before : SymbolTable;
+  inh is_interface : boolean;
 
-  var_decl ("${mod: VariableModifier} ${name : DefIdentifier}${type : OptionalTypeAnnotation} ${init : OptionalVariableInitialiation}\n${getter : OptionalPropertyGetter}") {
+  var_decl ("${mod: VariableModifier} ${name : DefIdentifier}${type : OptionalTypeAnnotation} ${init : OptionalVariableInitialiation}\n${getter : OptionalPropertyGetter}${setter : OptionalPropertySetter}") {
+    loc uses_field = (or getter.uses_field setter.uses_field);
+    loc no_custom_accessor = (and (not getter.has_getter) (not setter.has_setter));
+    loc has_all_accessors = (and getter.has_getter (or (not mod.is_mutable) setter.has_setter));
+    loc mutable_and_missing_accessor = (and mod.is_mutable (or (and (not getter.has_getter) setter.has_setter) (and getter.has_getter (not setter.has_setter))));
+
     type.symbols_before = this.symbols_before;
-    init.symbols_before = this.symbols_before;
-    init.expected_type = type.type;
-    init.must_initialise = false;
+    type.required = true;
     
     name.symbols_before = this.symbols_before;
 
     getter.symbols_before = this.symbols_before;
-    getter.has_property_initialiser = init.is_initialised;
     getter.property_type = type.type;
+    getter.is_interface = this.is_interface;
 
-    this.valid = (or type.has_type init.is_initialised);
+    setter.symbols_before = this.symbols_before;
+    setter.property_type = type.type;
+    setter.is_interface = this.is_interface;
+    setter.is_mutable = mod.is_mutable;
+
+    init.symbols_before = this.symbols_before;
+    init.expected_type = type.type;
+    init.must_initialise = (or (or .uses_field .no_custom_accessor) .mutable_and_missing_accessor);
+    init.must_not_initialise = (or this.is_interface (and .has_all_accessors (not .uses_field)));
 
     this.symbol = (Variable:create name.name (if type.has_type type.type init.type) init.is_initialised mod.is_mutable);
   }
@@ -235,24 +244,83 @@ class PropertyDeclaration {
 class OptionalPropertyGetter {
   grd valid;
   inh symbols_before : SymbolTable;
-  inh has_property_initialiser : boolean;
+  inh is_interface : boolean;
   inh property_type : Type;
 
   syn has_getter : boolean;
+  syn uses_field : boolean;
   
   no_getter ("") {
-    this.valid = this.has_property_initialiser;
+    this.valid = true;
     this.has_getter = false;
+    this.uses_field = false;
   }
 
-  getter ("get() {\+
+  getter_without_field ("get() {\+
           ${body : FunctionBody}\-
         }\n") {
-
-    this.valid = (not this.has_property_initialiser);
+    this.valid = true;
     body.symbols_before = (SymbolTable:enterScope this.symbols_before);
     body.expected_return_type = this.property_type;
     this.has_getter = true;
+    this.uses_field = false;
+  }
+
+  getter_with_field ("get() {\+
+          println(field)\n
+          ${body : FunctionBody}\-
+        }\n") {
+    loc field = (Variable:create "field" this.property_type true false); 
+    this.valid = (not this.is_interface);
+    body.symbols_before = (SymbolTable:put (SymbolTable:enterScope this.symbols_before) .field);
+    body.expected_return_type = this.property_type;
+    this.has_getter = true;
+    this.uses_field = true;
+  }
+}
+
+class OptionalPropertySetter {
+  grd valid1;
+  grd valid2;
+  inh symbols_before : SymbolTable;
+  inh is_interface : boolean;
+  inh property_type : Type;
+  inh is_mutable : boolean;
+
+  syn has_setter : boolean;
+  syn uses_field : boolean;
+  
+  no_setter ("") {
+    this.valid1 = true;
+    this.valid2 = true;
+    this.has_setter = false;
+    this.uses_field = false;
+  }
+
+  setter_without_field ("set(value) {\+
+          ${body : FunctionBody}\-
+        }\n") {
+    loc value = (Variable:create "value" this.property_type true false);
+    this.valid1 = this.is_mutable;
+    this.valid2 = true;
+    body.symbols_before = (SymbolTable:put (SymbolTable:enterScope this.symbols_before) .value);
+    body.expected_return_type = (SymbolTable:getAsType this.symbols_before "Unit");
+    this.has_setter = true;
+    this.uses_field = false;
+  }
+
+  setter_with_field ("set(value) {\+
+          println(field)\n
+          ${body : FunctionBody}\-
+        }\n") {
+    loc value = (Variable:create "value" this.property_type true false);
+    loc field = (Variable:create "field" this.property_type true true); 
+    this.valid1 = this.is_mutable;
+    this.valid2 = (not this.is_interface);
+    body.symbols_before = (SymbolTable:put (SymbolTable:put (SymbolTable:enterScope this.symbols_before) .field) .value);
+    body.expected_return_type = (SymbolTable:getAsType this.symbols_before "Unit");
+    this.has_setter = true;
+    this.uses_field = true;
   }
 }
 
@@ -373,6 +441,7 @@ class FunctionDeclaration {
       
     params.symbols_before = (SymbolTable:enterScope this.symbols_before);
     ret_type.symbols_before = this.symbols_before;
+    ret_type.required = false;
     expr.symbols_before = params.symbols_after;
     expr.expected_type = (if ret_type.has_type ret_type.type (SymbolTable:getKotlinAnyType this.symbols_before));
     name.symbols_before = this.symbols_before;
@@ -385,6 +454,7 @@ class FunctionDeclaration {
         }\n") {
     loc actual_ret_type = (if ret_type.has_type ret_type.type (SymbolTable:getAsType this.symbols_before "Unit"));
     ret_type.symbols_before = this.symbols_before;
+    ret_type.required = false;
     params.symbols_before = (SymbolTable:enterScope this.symbols_before);
     body.symbols_before = params.symbols_after;
     body.expected_return_type = .actual_ret_type;
@@ -584,6 +654,7 @@ class ExtensionFunctionDeclaration {
     this.type = type.type;
     params.symbols_before = (SymbolTable:enterScope this.symbols_before);
     ret_type.symbols_before = this.symbols_before;
+    ret_type.required = false;
     expr.symbols_before = (SymbolTable:put (SymbolTable:putAll (SymbolTable:merge this.symbols_before this.symbols_before) params.params) .this_object);
     expr.expected_type = (if ret_type.has_type ret_type.type (SymbolTable:getKotlinAnyType this.symbols_before));
     name.symbols_before = this.symbols_before;
@@ -600,6 +671,7 @@ class ExtensionFunctionDeclaration {
     type.symbols_before = this.symbols_before;
     this.type = type.type;
     ret_type.symbols_before = this.symbols_before;
+    ret_type.required = false;
     params.symbols_before = (SymbolTable:enterScope this.symbols_before);
     body.symbols_before = (SymbolTable:put (SymbolTable:putAll (SymbolTable:merge this.symbols_before this.symbols_before) params.params) .this_object);
     body.expected_return_type = .actual_ret_type;
@@ -771,9 +843,11 @@ class VariableDeclaration {
 
   var_decl ("${mod: VariableModifier} ${name : DefIdentifier}${type : OptionalTypeAnnotation} ${init : OptionalVariableInitialiation}") {
     type.symbols_before = this.symbols_before;
+    type.required = false;
     init.symbols_before = this.symbols_before;
     init.expected_type = type.type;
     init.must_initialise = this.must_initialise;
+    init.must_not_initialise = false;
     
     name.symbols_before = this.symbols_before;
 
@@ -807,6 +881,7 @@ class OptionalVariableInitialiation {
   inh expected_type : Type;
   inh symbols_before : SymbolTable;
   inh must_initialise : boolean;
+  inh must_not_initialise : boolean;
   
   syn is_initialised : boolean;
   syn type : Type;
@@ -819,7 +894,7 @@ class OptionalVariableInitialiation {
   }
 
   init("= ${expr : Expr}") {
-    this.valid = true;
+    this.valid = (not this.must_not_initialise);
 
     expr.symbols_before = this.symbols_before;
     expr.expected_type = this.expected_type;
@@ -830,17 +905,21 @@ class OptionalVariableInitialiation {
 }
 
 class OptionalTypeAnnotation {
+  grd valid;
   inh symbols_before: SymbolTable;
+  inh required : boolean;
 
   syn type : Type;
   syn has_type : boolean;
 
   no_type_annotation("") {
+    this.valid = (not this.required);
     this.type = (SymbolTable:getKotlinAnyType this.symbols_before);
     this.has_type = false;
   }
 
   type_annotation(": ${type: Type}") {
+    this.valid = true;
     type.symbols_before = this.symbols_before;
     this.type = type.type;
     this.has_type = true;
