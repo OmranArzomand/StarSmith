@@ -47,6 +47,10 @@ public class CustomList<T> implements Printable {
     return new CustomList<U>(item);
   }
 
+  public static <U> CustomList<U> create(List<U> items) {
+    return new CustomList<>(items);
+  }
+
   public static <U> CustomList<U> empty() {
     return new CustomList<U>();
   }
@@ -84,6 +88,10 @@ public class CustomList<T> implements Printable {
 
   public static Variable asVariable(Object o) {
     return (Variable) o;
+  }
+
+  public static Type asType(Object o) {
+    return (Type) o;
   }
   
   public static <U> U random(CustomList<U> list) {

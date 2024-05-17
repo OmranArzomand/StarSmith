@@ -9,11 +9,20 @@ public class Function extends Symbol implements Printable {
 
   public final Type returnType;
   public final CustomList<Variable> params;
+  public final boolean isAbstract;
 
   public Function(String name, Type returnType, CustomList<Variable> params) {
     super(name);
     this.returnType = returnType;
     this.params = params;
+    this.isAbstract = false;
+  }
+
+  public Function(String name, Type returnType, CustomList<Variable> params, boolean isAbstract) {
+    super(name);
+    this.returnType = returnType;
+    this.params = params;
+    this.isAbstract = isAbstract;
   }
 
   @Override
@@ -22,11 +31,15 @@ public class Function extends Symbol implements Printable {
     for (Variable param : params.items) {
       paramClones.add(param);
     }
-    return new Function(name, returnType.clone(), new CustomList<>(paramClones));
+    return new Function(name, returnType.clone(), new CustomList<>(paramClones), isAbstract);
   }
 
   public static Function create(String name, Type returnType, CustomList<Variable> params) {
-    return new Function(name, returnType, params);
+    return new Function(name, returnType, params, false);
+  }
+
+  public static Function create(String name, Type returnType, CustomList<Variable> params, boolean isAbstract) {
+    return new Function(name, returnType, params, isAbstract);
   }
 
   public static CustomList<Variable> getParams(Function function) {
@@ -35,6 +48,10 @@ public class Function extends Symbol implements Printable {
 
   public static Type getReturnType(Function function) {
     return function.returnType;
+  }
+
+  public static String getName(Function function) {
+    return function.name;
   }
 
   @Override

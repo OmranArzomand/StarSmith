@@ -8,20 +8,38 @@ public class Variable extends Symbol implements Printable {
   public final Type type;
   public final boolean isInitialised;
   public final boolean isMutable;
+  public final boolean isAbstract;
 
   public Variable(String name, Type type, boolean isInitialised, boolean isMutable) {
     super(name);
     this.type = type;
     this.isInitialised = isInitialised;
     this.isMutable = isMutable;
+    this.isAbstract = false;
+  }
+
+  public Variable(String name, Type type, boolean isInitialised, boolean isMutable, boolean isAbstract) {
+    super(name);
+    this.type = type;
+    this.isInitialised = isInitialised;
+    this.isMutable = isMutable;
+    this.isAbstract = isAbstract;
   }
 
   public static final Variable create(String name, Type type, boolean isInitialised, boolean isMutable) {
     return new Variable(name, type, isInitialised, isMutable);
   }
 
+  public static final Variable create(String name, Type type, boolean isInitialised, boolean isMutable, boolean isAbstract) {
+    return new Variable(name, type, isInitialised, isMutable, isAbstract);
+  }
+
   public static final Type getType(Variable variable) {
     return variable.type;
+  }
+
+  public static final String getName(Variable variable) {
+    return variable.name;
   }
 
   public static final boolean getIsMutable(Variable variable) {
@@ -34,7 +52,7 @@ public class Variable extends Symbol implements Printable {
 
   @Override
   public Variable clone() {
-    return new Variable(name, type.clone(), isInitialised, isMutable);
+    return new Variable(name, type.clone(), isInitialised, isMutable, isAbstract);
   }
 
   @Override

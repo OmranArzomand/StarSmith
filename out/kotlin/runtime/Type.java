@@ -6,6 +6,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
 import java.util.ArrayList;
+import java.util.Set;
+import java.util.HashSet;
 
 import javax.lang.model.element.VariableElement;
 
@@ -27,14 +29,15 @@ public class Type extends Symbol implements Printable{
     this.supertypes = new CustomList<>();
   }
 
-  public Type(String name, boolean isInterface, boolean isOpen, CustomList<CustomList<Variable>> constructors, CustomList<Variable> properties) {
+  public Type(String name, boolean isInterface, boolean isOpen, CustomList<CustomList<Variable>> constructors, 
+    CustomList<Variable> properties, CustomList<Type> supertypes) {
     super(name);
     this.isInterface = isInterface;
     this.isOpen = isOpen;
     this.constructors = constructors;
     this.memberFunctions = new CustomList<>();
     this.properties = properties;
-    this.supertypes = new CustomList<>();
+    this.supertypes = supertypes;
   }
 
 
@@ -78,6 +81,15 @@ public class Type extends Symbol implements Printable{
     return false;
   }
 
+  public static boolean containsNoClasses(CustomList<Type> types) {
+    for (Type type : types.items) {
+      if (!type.isInterface) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   public static boolean isUnitType(Type type) {
     return type.name.equals("Unit");
   }
@@ -110,6 +122,64 @@ public class Type extends Symbol implements Printable{
     return clone;
   }
 
+  public static String getName(Type type) {
+    return type.name;
+  }
+
+  public static CustomList<Function> getAbstractMemberFunctions(Type type) {
+    Set<Type> visitedTypes = new HashSet<>();
+    List<Type> queue = new ArrayList<>();
+    for (Type supertype : type.supertypes.items) {
+      if (supertype.isInterface) {
+        queue.add(supertype);
+      }
+    }
+    List<Function> abstractFunctions = new ArrayList<>();
+
+    while (!queue.isEmpty()) {
+      Type curType = queue.remove(0);
+      visitedTypes.add(curType);
+      for (Type supertype : curType.supertypes.items) {
+        if (supertype.isInterface && !visitedTypes.contains(supertype)) {
+          queue.add(supertype);
+        }
+      }
+      for (Function function : curType.memberFunctions.items) {
+        if (function.isAbstract) {
+          abstractFunctions.add(function);
+        }
+      }     
+    }
+    return new CustomList<>(abstractFunctions);
+  }
+
+  public static CustomList<Variable> getAbstractProperties(Type type) {
+    Set<Type> visitedTypes = new HashSet<>();
+    List<Type> queue = new ArrayList<>();
+    for (Type supertype : type.supertypes.items) {
+      if (supertype.isInterface) {
+        queue.add(supertype);
+      }
+    }
+    List<Variable> abstractProperties = new ArrayList<>();
+
+    while (!queue.isEmpty()) {
+      Type curType = queue.remove(0);
+      visitedTypes.add(curType);
+      for (Type supertype : curType.supertypes.items) {
+        if (supertype.isInterface && !visitedTypes.contains(supertype)) {
+          queue.add(supertype);
+        }
+      }
+      for (Variable property : curType.properties.items) {
+        if (property.isAbstract) {
+          abstractProperties.add(property);
+        }
+      }     
+    }
+    return new CustomList<>(abstractProperties);
+  }
+
   public static Function getMemberFunctionWithType(Type type, String name, Type expectedType) {
     for (Function func : type.memberFunctions.items) {
       if (func.name.equals(name) && Type.assignable(func.returnType, expectedType)) {
@@ -136,8 +206,8 @@ public class Type extends Symbol implements Printable{
     return new Type(name, constructors);
   }
 
-  public static Type create(String name, boolean isInterface, boolean isOpen, CustomList<CustomList<Variable>> constructors, CustomList<Variable> properties) {
-    return new Type(name, isInterface, isOpen, constructors, properties);
+  public static Type create(String name, boolean isInterface, boolean isOpen, CustomList<CustomList<Variable>> constructors, CustomList<Variable> properties, CustomList<Type> supertypes) {
+    return new Type(name, isInterface, isOpen, constructors, properties, supertypes);
   }
 
   @Override

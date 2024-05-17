@@ -4,6 +4,7 @@ use Type;
 use Function;
 use CustomList;
 use Variable;
+use GeneratorClassHelper;
 
 class Program {
   prog("${decls : OptionalGlobalDeclarationList}
@@ -79,14 +80,247 @@ class ClassDeclaration {
   syn symbol : Type;
   inh symbols_before : SymbolTable;
 
-  class_decl("${open : OptionalOpen}${class_or_interface : ClassOrInterface} ${ident : DefIdentifier}${primary_constructor : OptionalPrimaryConstructor} {\+${body : ClassMemberList}\-}\n") {
+  class_decl("${open : OptionalOpen}${class_or_interface : ClassOrInterface} ${ident : DefIdentifier}${primary_constructor : OptionalPrimaryConstructor} ${supertypes : TypeInheritance}{\+${body : ClassMemberList}\n${overrides: MandatoryOverrides}\-}\n") {
+    loc supertypes = (if (== (CustomList:getSize supertypes.supertypes) 0) (CustomList:create (SymbolTable:getKotlinAnyType this.symbols_before)) supertypes.supertypes); 
+    loc class_type = (Type:create ident.name class_or_interface.is_interface (or open.is_open class_or_interface.is_interface) (if (== primary_constructor.params nil) (CustomList:empty) (CustomList:create primary_constructor.params)) primary_constructor.property_constrcutor_params .supertypes);
+
     ident.symbols_before = this.symbols_before;
+
     primary_constructor.symbols_before = (SymbolTable:enterScope this.symbols_before);
     primary_constructor.is_interface = class_or_interface.is_interface;
+
+    supertypes.symbols_before = primary_constructor.symbols_after;
+    supertypes.is_interface = class_or_interface.is_interface;
+
     body.symbols_before = primary_constructor.symbols_after;
-    body.class_type_before = (Type:addSupertype (Type:create ident.name class_or_interface.is_interface (or open.is_open class_or_interface.is_interface) (if (== primary_constructor.params nil) (CustomList:empty) (CustomList:create primary_constructor.params)) primary_constructor.property_constrcutor_params) (SymbolTable:getKotlinAnyType this.symbols_before));
+    body.class_type_before = .class_type;
     body.non_property_constrcutor_params = primary_constructor.non_property_constrcutor_params;
+
+    overrides.symbols_before = body.symbols_after;
+    overrides.class_type_before = .class_type; 
+
     this.symbol = body.class_type_after;
+  }
+}
+
+class MandatoryOverrides {
+  grd valid;
+
+  inh symbols_before : SymbolTable;
+  inh class_type_before : Type;
+
+  no_overrides ("") {
+    this.valid = (Type:isInterface this.class_type_before);
+  }
+
+  overrides ("${properties : MandatoryPropertyOverrideList}${functions : MandatoryFunctionOverrideList}") {
+    this.valid = (not (Type:isInterface this.class_type_before));
+    properties.symbols_before = this.symbols_before;
+    properties.properties = (Type:getAbstractProperties this.class_type_before);
+
+    functions.symbols_before = this.symbols_before;
+    functions.functions = (Type:getAbstractMemberFunctions this.class_type_before);
+  }
+}
+
+class MandatoryPropertyOverrideList {
+  grd valid;
+
+  inh properties : CustomList;
+  inh symbols_before : SymbolTable;
+
+  none("") {
+    this.valid = (== (CustomList:getSize this.properties) 0);
+  }
+
+  mult("${property : MandatoryPropertyOverride}\n${rest : MandatoryPropertyOverrideList}") {
+    this.valid = (> (CustomList:getSize this.properties) 0);
+    
+    property.property = (CustomList:asVariable (CustomList:getHead this.properties));
+    property.symbols_before = this.symbols_before;
+
+    rest.properties = (CustomList:getTail this.properties);
+    rest.symbols_before = this.symbols_before;
+  }
+}
+
+class MandatoryPropertyOverride {
+  inh property : Variable;
+  inh symbols_before : SymbolTable;
+
+  property ("override ${mod : InsertString} ${name : InsertString}: ${type : InsertString} = ${expr : Expr}") {
+    mod.string = (if (Variable:getIsMutable this.property) "var" "val");
+
+    name.string = (Variable:getName this.property);
+
+    type.string = (Type:getName (Variable:getType this.property));
+
+    expr.expected_type = (Variable:getType this.property);
+    expr.symbols_before = this.symbols_before;
+  }
+}
+
+class MandatoryFunctionOverrideList {
+  grd valid;
+
+  inh functions : CustomList;
+  inh symbols_before : SymbolTable;
+
+  none("") {
+    this.valid = (== (CustomList:getSize this.functions) 0);
+  }
+
+  mult("${function : MandatoryFunctionOverride}\n${rest : MandatoryFunctionOverrideList}") {
+    this.valid = (> (CustomList:getSize this.functions) 0);
+
+    function.function = (CustomList:getHead this.functions);
+    function.symbols_before = this.symbols_before;
+
+    rest.functions = (CustomList:getTail this.functions);
+    rest.symbols_before = this.symbols_before;
+  }
+}
+
+class MandatoryFunctionOverride {
+  inh function : Function;
+  inh symbols_before : SymbolTable;
+
+  fun_expr ("override fun ${name : InsertString}(${params : MandatoryParameterList}): ${type : InsertString} = ${expr : Expr}") {
+    name.string = (Function:getName this.function);
+
+    type.string = (Type:getName (Function:getReturnType this.function));
+
+    params.params = (Function:getParams this.function);
+    
+    expr.expected_type = (Function:getReturnType this.function);
+    expr.symbols_before = this.symbols_before;
+  }
+
+  fun_body ("override fun ${name : InsertString}(${params : MandatoryParameterList}): ${type : InsertString} {\+
+          ${body : FunctionBody}\-
+        }\n") {
+    name.string = (Function:getName this.function);
+
+    params.params = (Function:getParams this.function);
+
+    type.string = (Type:getName (Function:getReturnType this.function));
+    
+    body.expected_return_type = (Function:getReturnType this.function);
+    body.symbols_before = this.symbols_before;
+  }
+}
+
+class MandatoryParameterList {
+  grd valid;
+  inh params : CustomList;
+
+  none("") {
+    this.valid = (== (CustomList:getSize this.params) 0);
+  }
+
+  mult("${name : InsertString}: ${type : InsertString}, ${rest : MandatoryParameterList}") {
+    loc param = (CustomList:asVariable (CustomList:getHead this.params));
+    this.valid = (> (CustomList:getSize this.params) 0);
+
+    name.string = (Variable:getName .param);
+
+    type.string = (Type:getName (Variable:getType .param));
+
+    rest.params = (CustomList:getTail this.params);
+  }
+}
+
+class TypeInheritance {
+  grd valid;
+
+  inh symbols_before : SymbolTable;
+  inh is_interface : boolean;
+
+  syn supertypes : CustomList;
+
+  @weight(1)
+  no_inheritance("") {
+    this.valid = true;
+    this.supertypes = (CustomList:empty);
+  }
+
+  @weight(2)
+  inheritance(": ${supertypes : TypeInheritanceList}") {
+    loc candidate_types = (CustomList:create (SymbolTable:visibleTypes this.symbols_before (not this.is_interface) true));
+    this.valid = (> (CustomList:getSize .candidate_types) 0);
+    supertypes.candidate_types = .candidate_types;
+    supertypes.symbols_before = this.symbols_before;
+
+    this.supertypes = supertypes.supertypes;
+  }
+}
+
+class TypeInheritanceList {
+  grd valid;
+  grd valid2;
+
+  inh symbols_before : SymbolTable;
+  inh candidate_types : CustomList;
+
+  syn supertypes : CustomList;
+
+  skip("${rest : TypeInheritanceList}") {
+    this.valid = (> (CustomList:getSize this.candidate_types) 0);
+    this.valid2 = true;
+
+    rest.symbols_before = this.symbols_before;
+    rest.candidate_types = (CustomList:getTail this.candidate_types);
+
+    this.supertypes = rest.supertypes;
+  }
+
+  one("${type_delegation : TypeDelegation}") {
+    loc chosen_type = (CustomList:asType (CustomList:getHead this.candidate_types));
+    this.valid = (> (CustomList:getSize this.candidate_types) 0);
+    this.valid2 = true;
+
+    type_delegation.type = .chosen_type;
+    type_delegation.symbols_before = this.symbols_before;
+
+    this.supertypes = (CustomList:create .chosen_type);
+  }
+
+  mult("${type_delegation : TypeDelegation}, ${rest : TypeInheritanceList}") {
+    loc chosen_type = (CustomList:asType (CustomList:getHead this.candidate_types));
+    this.valid = (> (CustomList:getSize this.candidate_types) 0);
+    this.valid2 = (or (Type:isInterface .chosen_type) (Type:containsNoClasses rest.supertypes));
+
+    type_delegation.type = .chosen_type;
+    type_delegation.symbols_before = this.symbols_before;
+
+    rest.symbols_before = this.symbols_before;
+    rest.candidate_types = (CustomList:getTail this.candidate_types);
+
+    this.supertypes = (CustomList:prepend rest.supertypes .chosen_type);
+  }
+}
+
+class TypeDelegation {
+  grd valid;
+
+  inh type : Type;
+  inh symbols_before : SymbolTable;
+
+  constructor ("${name : InsertString}(${chosen_params : UseConstructor}${args : ArgumentList})") {
+    this.valid = (not (Type:isInterface this.type));
+
+    name.string = (Type:getName this.type);
+
+    chosen_params.class_type = this.type;
+
+    args.symbols_before = this.symbols_before;
+    args.expected_params = chosen_params.params;
+  }
+
+  no_constructor ("${name : InsertString}") {
+    this.valid = (Type:isInterface this.type);
+
+    name.string = (Type:getName this.type);
   }
 }
 
@@ -219,6 +453,7 @@ class PropertyDeclaration {
     loc no_custom_accessor = (and (not getter.has_getter) (not setter.has_setter));
     loc has_all_accessors = (and getter.has_getter (or (not mod.is_mutable) setter.has_setter));
     loc mutable_and_missing_accessor = (and mod.is_mutable (or (and (not getter.has_getter) setter.has_setter) (and getter.has_getter (not setter.has_setter))));
+    loc is_abstract = (and this.is_interface .no_custom_accessor);
 
     type.symbols_before = this.symbols_before;
     type.required = true;
@@ -236,10 +471,10 @@ class PropertyDeclaration {
 
     init.symbols_before = this.symbols_before;
     init.expected_type = type.type;
-    init.must_initialise = (or (or .uses_field .no_custom_accessor) .mutable_and_missing_accessor);
+    init.must_initialise = (or (or .uses_field (and .no_custom_accessor (not this.is_interface))) .mutable_and_missing_accessor);
     init.must_not_initialise = (or this.is_interface (and .has_all_accessors (not .uses_field)));
 
-    this.symbol = (Variable:create name.name (if type.has_type type.type init.type) init.is_initialised mod.is_mutable);
+    this.symbol = (Variable:create name.name (if type.has_type type.type init.type) init.is_initialised mod.is_mutable .is_abstract);
   }
 }
 
@@ -380,6 +615,7 @@ class OptionalPrimaryConstructor {
   }
 }
 
+@list(5)
 class ConstructorList {
   inh symbols_before : SymbolTable;
   syn symbols_after : SymbolTable;
@@ -394,7 +630,7 @@ class ConstructorList {
     this.property_constrcutor_params = (CustomList:empty);
   }
 
-  @weight(10)
+  @weight(7)
   mult_param ("${param : ConstructorParameterDeclaration}, ${rest : ConstructorList}") {
     param.symbols_before = this.symbols_before;
     rest.symbols_before = (if param.add_to_properties (SymbolTable:put this.symbols_before param.symbol) this.symbols_before);
@@ -446,7 +682,7 @@ class FunctionDeclaration {
     params.symbols_before = (SymbolTable:enterScope this.symbols_before);
     ret_type.symbols_before = this.symbols_before;
     ret_type.required = true;
-    this.symbol = (Function:create name.name ret_type.type params.params);
+    this.symbol = (Function:create name.name ret_type.type params.params true);
 
   }
 
@@ -1202,6 +1438,12 @@ class UseVariableIdentifier {
     this.symbol = $;
   }
 
+}
+
+class InsertString {
+  inh string : String;
+
+  string (GeneratorClassHelper:singleString this.string) : String {}
 }
 
 class UsePropertyIdentifier {

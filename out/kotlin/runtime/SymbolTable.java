@@ -159,7 +159,7 @@ public final class SymbolTable {
     return flattened;
   }
 
-  public static final List<Type> visibleTypes(final SymbolTable symbolTable) {
+  public static final List<Type> visibleTypes(final SymbolTable symbolTable, boolean allowClasses, boolean mustBeOpen) {
     final List<Type> visibleTypes = new LinkedList<>();
 
     final LinkedHashMap<String, Symbol> flattened = flatten(symbolTable);
@@ -168,9 +168,15 @@ public final class SymbolTable {
         continue;
       }
       Type type = (Type) symbol;
-      visibleTypes.add(type);
+      if ((allowClasses || (type.isInterface)) && (!mustBeOpen || type.isOpen)) {
+        visibleTypes.add(type);
+      }
     }
     return visibleTypes;
+  }
+
+  public static final List<Type> visibleTypes(final SymbolTable symbolTable) {
+    return visibleTypes(symbolTable, true, false);
   }
 
   public static final List<Variable> visibleVariables(final SymbolTable symbolTable,
