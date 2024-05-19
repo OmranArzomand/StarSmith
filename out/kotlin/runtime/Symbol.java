@@ -4,10 +4,8 @@ import i2.act.fuzzer.runtime.Printable;
 
 import java.util.Objects;
 
-import javax.lang.model.element.VariableElement;
 
-
-public class Symbol implements Printable {
+public class Symbol implements Printable, Cloneable {
 
   public final String name;
 
@@ -15,6 +13,7 @@ public class Symbol implements Printable {
     this.name = name;
   }
 
+  @Override
   public Symbol clone() {
     return new Symbol(name);
   }

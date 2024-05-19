@@ -5,7 +5,7 @@ import i2.act.fuzzer.runtime.Printable;
 import java.util.Objects;
 
 public class Variable extends Symbol implements Printable {
-  public final Type type;
+  public Type type;
   public final boolean isInitialised;
   public final boolean isMutable;
   public final boolean isAbstract;

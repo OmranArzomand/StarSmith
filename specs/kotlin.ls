@@ -5,6 +5,8 @@ use Function;
 use CustomList;
 use Variable;
 use GeneratorClassHelper;
+use TypeParam;
+use AbstractType;
 
 class Program {
   prog("${decls : OptionalGlobalDeclarationList}
@@ -80,13 +82,19 @@ class ClassDeclaration {
   syn symbol : Type;
   inh symbols_before : SymbolTable;
 
-  class_decl("${open : OptionalOpen}${class_or_interface : ClassOrInterface} ${ident : DefIdentifier}${primary_constructor : OptionalPrimaryConstructor} ${supertypes : TypeInheritance}{\+${body : ClassMemberList}\n${overrides: MandatoryOverrides}\-}\n") {
+  class_decl("${open : OptionalOpen}${class_or_interface : ClassOrInterface} ${ident : DefIdentifier}${type_params : OptionalTypeParamters}${primary_constructor : OptionalPrimaryConstructor} ${supertypes : TypeInheritance}{\+${body : ClassMemberList}\n${overrides: MandatoryOverrides}\-}\n") {
     loc supertypes = (if (== (CustomList:getSize supertypes.supertypes) 0) (CustomList:create (SymbolTable:getKotlinAnyType this.symbols_before)) supertypes.supertypes); 
-    loc class_type = (Type:create ident.name class_or_interface.is_interface (or open.is_open class_or_interface.is_interface) (if (== primary_constructor.params nil) (CustomList:empty) (CustomList:create primary_constructor.params)) primary_constructor.property_constrcutor_params .supertypes);
+    loc class_type = (if (== (CustomList:getSize type_params.type_params) 0)
+      (Type:create ident.name class_or_interface.is_interface (or open.is_open class_or_interface.is_interface) (if (== primary_constructor.params nil) (CustomList:empty) (CustomList:create primary_constructor.params)) primary_constructor.property_constrcutor_params .supertypes)
+      (AbstractType:create ident.name class_or_interface.is_interface (or open.is_open class_or_interface.is_interface) (if (== primary_constructor.params nil) (CustomList:empty) (CustomList:create primary_constructor.params)) primary_constructor.property_constrcutor_params .supertypes type_params.type_params)
+    );
+      
 
     ident.symbols_before = this.symbols_before;
 
-    primary_constructor.symbols_before = (SymbolTable:enterScope this.symbols_before);
+    type_params.symbols_before = (SymbolTable:enterScope this.symbols_before);
+
+    primary_constructor.symbols_before = type_params.symbols_after;
     primary_constructor.is_interface = class_or_interface.is_interface;
 
     supertypes.symbols_before = primary_constructor.symbols_after;
@@ -100,6 +108,51 @@ class ClassDeclaration {
     overrides.class_type_before = .class_type; 
 
     this.symbol = body.class_type_after;
+  }
+}
+
+class OptionalTypeParamters {
+  inh symbols_before : SymbolTable;
+
+  syn type_params : CustomList;
+  syn symbols_after : SymbolTable;
+
+  no_type_params ("") {
+    this.type_params = (CustomList:empty);
+    this.symbols_after = this.symbols_before;
+  }
+
+  type_params ("<${list : TypeParameterList}>") {
+    list.symbols_before = this.symbols_before;
+    this.type_params = list.type_params;
+    this.symbols_after = list.symbols_after;
+  }
+}
+
+@list(2)
+class TypeParameterList {
+  inh symbols_before : SymbolTable;
+
+  syn type_params : CustomList;
+  syn symbols_after : SymbolTable;
+
+  one ("${type_param : TypeParameter}") {
+    type_param.symbols_before = this.symbols_before;
+
+    this.type_params = (CustomList:create type_param.type_param);
+    this.symbols_after = (SymbolTable:put this.symbols_before type_param.type_param);
+  }
+}
+
+class TypeParameter {
+  inh symbols_before : SymbolTable;
+
+  syn type_param : Type;
+
+  type_param("${ident: DefIdentifier}") {
+    ident.symbols_before = this.symbols_before;
+
+    this.type_param = (TypeParam:create ident.name);
   }
 }
 
@@ -246,7 +299,7 @@ class TypeInheritance {
 
   @weight(2)
   inheritance(": ${supertypes : TypeInheritanceList}") {
-    loc candidate_types = (CustomList:create (SymbolTable:visibleTypes this.symbols_before (not this.is_interface) true));
+    loc candidate_types = (CustomList:create (SymbolTable:visibleTypes this.symbols_before (not this.is_interface) true false));
     this.valid = (> (CustomList:getSize .candidate_types) 0);
     supertypes.candidate_types = .candidate_types;
     supertypes.symbols_before = this.symbols_before;
@@ -943,7 +996,7 @@ class MemberFunctionCall {
     expr.expected_type = (SymbolTable:getKotlinAnyType this.symbols_before);
 
     member_function_callee.expected_return_type = this.expected_type;
-    member_function_callee.callee_type = (SymbolTable:getAsType this.symbols_before (Symbol:getName expr.type));
+    member_function_callee.callee_type = expr.type;
 
     args.expected_params = (Function:getParams member_function_callee.symbol);
     args.symbols_before = this.symbols_before;
@@ -1179,7 +1232,68 @@ class OptionalTypeAnnotation {
 }
 
 class Type {
-  inh symbols_before: SymbolTable;
+  inh symbols_before : SymbolTable;
+
+  syn type  : Type;
+
+  type ("${type : UseTypeIdentifier}${type_constructor : OptionalTypeConstructor}") {
+    type.symbols_before = this.symbols_before;
+
+    type_constructor.type_before = type.type;
+    type_constructor.symbols_before = this.symbols_before;
+
+    this.type = type_constructor.type_after;
+  }
+}
+
+class OptionalTypeConstructor {
+  grd valid;
+
+  inh symbols_before : SymbolTable;
+  inh type_before : Type;
+
+  syn type_after : Type;
+  syn symbols_after : SymbolTable;
+
+  no_constructor ("") {
+    this.valid = (not (AbstractType:isAbstractType this.type_before));
+    this.type_after = this.type_before; 
+    this.symbols_after = this.symbols_before;
+  }
+
+  constructor ("<${constructor : TypeConstructorList}>") {
+    loc abstract_type = (AbstractType:asAbstractType this.type_before);
+    loc concrete_type = (AbstractType:instantiate .abstract_type constructor.type_arguments);
+    this.valid = (AbstractType:isAbstractType this.type_before);
+
+    constructor.symbols_before = this.symbols_before;
+    constructor.type_params = (AbstractType:getTypeParams .abstract_type);
+
+    this.type_after = .concrete_type;
+    this.symbols_after = (SymbolTable:nothing this.symbols_before (AbstractType:addConcreteInstance .abstract_type .concrete_type));
+  }
+}
+
+class TypeConstructorList {
+  grd valid;
+
+  inh symbols_before : SymbolTable;
+  inh type_params : CustomList;
+
+  syn type_arguments : CustomList;
+  
+  one ("${type : Type}") {
+    this.valid = (== (CustomList:getSize this.type_params) 1);
+    
+    type.symbols_before = this.symbols_before;
+    
+    this.type_arguments = (CustomList:create type.type);
+  }
+}
+
+class UseTypeIdentifier {
+  inh symbols_before : SymbolTable;
+
   syn type : Type;
 
   type (SymbolTable:visibleTypes this.symbols_before) : Type {

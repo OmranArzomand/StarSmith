@@ -9,8 +9,6 @@ import java.util.ArrayList;
 import java.util.Set;
 import java.util.HashSet;
 
-import javax.lang.model.element.VariableElement;
-
 public class Type extends Symbol implements Printable{
   public final boolean isOpen;
   public final boolean isInterface;
@@ -200,6 +198,10 @@ public class Type extends Symbol implements Printable{
 
   public static CustomList<CustomList<Variable>> getConstructors(Type type) {
     return type.constructors;
+  }
+
+  public static Type create(String name) {
+    return new Type(name, CustomList.empty());
   }
 
   public static Type create(String name, CustomList<CustomList<Variable>> constructors) {

@@ -7,7 +7,7 @@ import java.util.ArrayList;
 
 public class Function extends Symbol implements Printable {
 
-  public final Type returnType;
+  public Type returnType;
   public final CustomList<Variable> params;
   public final boolean isAbstract;
 
@@ -27,11 +27,7 @@ public class Function extends Symbol implements Printable {
 
   @Override
   public Function clone() {
-    List<Variable> paramClones = new ArrayList<>();
-    for (Variable param : params.items) {
-      paramClones.add(param);
-    }
-    return new Function(name, returnType.clone(), new CustomList<>(paramClones), isAbstract);
+    return new Function(name, returnType.clone(), params.clone(), isAbstract);
   }
 
   public static Function create(String name, Type returnType, CustomList<Variable> params) {

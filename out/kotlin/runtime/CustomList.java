@@ -7,7 +7,7 @@ import i2.act.fuzzer.runtime.Printable;
 import java.util.Objects;
 import java.util.List;
 
-public class CustomList<T> implements Printable {
+public class CustomList<T extends Cloneable> implements Printable, Cloneable {
 	public final List<T> items;
 
   public CustomList(List<T> list) {
@@ -35,31 +35,36 @@ public class CustomList<T> implements Printable {
     }
   }
 
+  public int indexOf(Object item) {
+    return items.indexOf(item);
+  }
+
+  @Override
   public CustomList<T> clone() {
     CustomList<T> newList = new CustomList<>();
     for (T item : this.items) {
-      newList.add(item);
+      newList.add((T) item.clone());
     }
     return newList;
   }
     
-  public static <U> CustomList<U> create(U item) {
+  public static <U extends Cloneable> CustomList<U> create(U item) {
     return new CustomList<U>(item);
   }
 
-  public static <U> CustomList<U> create(List<U> items) {
+  public static <U extends Cloneable> CustomList<U> create(List<U> items) {
     return new CustomList<>(items);
   }
 
-  public static <U> CustomList<U> empty() {
+  public static <U extends Cloneable> CustomList<U> empty() {
     return new CustomList<U>();
   }
     
-  public static <U> U get(CustomList<U> list, int index) {
+  public static <U extends Cloneable> U get(CustomList<U> list, int index) {
     return list.items.get(index);
   }
 
-  public static <U> CustomList<U> prepend(CustomList<U> list, U item) {
+  public static <U extends Cloneable> CustomList<U> prepend(CustomList<U> list, U item) {
     if (item == null) {
       return list;
     }
@@ -70,7 +75,7 @@ public class CustomList<T> implements Printable {
     return newList;
   }
 
-  public static <U> CustomList<U> getTail(CustomList<U> list) {
+  public static <U extends Cloneable> CustomList<U> getTail(CustomList<U> list) {
     CustomList<U> newList = new CustomList<U>();
     for (int i = 1; i < list.items.size(); i++) {
       newList.items.add(list.items.get(i));
@@ -78,11 +83,11 @@ public class CustomList<T> implements Printable {
     return newList;
   }
 
-  public static <U> U getHead(CustomList<U> list) {
+  public static <U extends Cloneable> U getHead(CustomList<U> list) {
     return list.items.get(0);
   }
 
-  public static <U> int getSize(CustomList<U> list) {
+  public static <U extends Cloneable> int getSize(CustomList<U> list) {
     return list.items.size();
   }
 
@@ -94,12 +99,12 @@ public class CustomList<T> implements Printable {
     return (Type) o;
   }
   
-  public static <U> U random(CustomList<U> list) {
+  public static <U extends Cloneable> U random(CustomList<U> list) {
     int randomIndex = (int) (Math.random() * list.items.size());
     return list.items.get(randomIndex);
   }
 
-  public static <U> boolean contains(CustomList<U> list, U item) {
+  public static <U extends Cloneable> boolean contains(CustomList<U> list, U item) {
     for (U i : list.items) {
       if (i.equals(item)) {
         return true;

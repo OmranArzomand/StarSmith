@@ -130,7 +130,7 @@ public final class SymbolTable {
         return (Type) scope.get(name);
       }
     }
-
+    System.out.println(name);
     throw new RuntimeException("name not defined");
   }
 
@@ -159,7 +159,7 @@ public final class SymbolTable {
     return flattened;
   }
 
-  public static final List<Type> visibleTypes(final SymbolTable symbolTable, boolean allowClasses, boolean mustBeOpen) {
+  public static final List<Type> visibleTypes(final SymbolTable symbolTable, boolean allowClasses, boolean mustBeOpen, boolean allowAbstract) {
     final List<Type> visibleTypes = new LinkedList<>();
 
     final LinkedHashMap<String, Symbol> flattened = flatten(symbolTable);
@@ -168,15 +168,21 @@ public final class SymbolTable {
         continue;
       }
       Type type = (Type) symbol;
-      if ((allowClasses || (type.isInterface)) && (!mustBeOpen || type.isOpen)) {
+      if ((allowClasses || (type.isInterface)) && (!mustBeOpen || type.isOpen) && (allowAbstract || !(type instanceof AbstractType))) {
         visibleTypes.add(type);
+        if (type instanceof AbstractType) {
+          AbstractType abstractType = (AbstractType) type;
+          for (Type t : abstractType.concreteInstances.items) {
+            visibleTypes.add(t);
+          }
+        }
       }
     }
     return visibleTypes;
   }
 
   public static final List<Type> visibleTypes(final SymbolTable symbolTable) {
-    return visibleTypes(symbolTable, true, false);
+    return visibleTypes(symbolTable, true, false, true);
   }
 
   public static final List<Variable> visibleVariables(final SymbolTable symbolTable,
@@ -240,9 +246,18 @@ public final class SymbolTable {
     for (final Symbol symbol : flattened.values()) {
       if (symbol instanceof Type) {
         Type type = (Type) symbol;
-        if (expectedReturnType == null || Type.assignable(type, expectedReturnType)) {
-          for (CustomList<Variable> constructorParams : type.constructors.items) {
-            visibleFunctions.add(Function.create(type.name, type, constructorParams));
+        List<Type> types;
+        if (!(type instanceof AbstractType)) {
+          types = List.of(type);
+        } else {
+          AbstractType abstractType = (AbstractType) type;
+          types = abstractType.concreteInstances.items;
+        }
+        for (Type t : types) {
+          if (expectedReturnType == null || Type.assignable(t, expectedReturnType)) {
+            for (CustomList<Variable> constructorParams : t.constructors.items) {
+              visibleFunctions.add(Function.create(t.name, t, constructorParams));
+            }
           }
         }
       } else if (symbol instanceof Function) {
@@ -314,6 +329,10 @@ public final class SymbolTable {
   //     }
   //     return clone;
   //   }
+
+  public static final SymbolTable nothing(final SymbolTable symbolTable, Object obj) {
+    return symbolTable;
+  }
 
   public static final SymbolTable setIsInitialised(final SymbolTable symbolTable,
       final Variable variable, final Boolean isInitialised) {
