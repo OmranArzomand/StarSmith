@@ -16,6 +16,7 @@ public class Type extends Symbol implements Printable{
   public final CustomList<Function> memberFunctions;
   public final CustomList<Variable> properties;
   public final CustomList<Type> supertypes;
+  public final CustomList<Pair<String, Type>> typeArguments;
 
   public Type(String name, CustomList<CustomList<Variable>> constructors) {
     super(name);
@@ -25,6 +26,7 @@ public class Type extends Symbol implements Printable{
     this.memberFunctions = new CustomList<>();
     this.properties = new CustomList<>();
     this.supertypes = new CustomList<>();
+    this.typeArguments = new CustomList<>();
   }
 
   public Type(String name, boolean isInterface, boolean isOpen, CustomList<CustomList<Variable>> constructors, 
@@ -36,11 +38,13 @@ public class Type extends Symbol implements Printable{
     this.memberFunctions = new CustomList<>();
     this.properties = properties;
     this.supertypes = supertypes;
+    this.typeArguments = new CustomList<>();
   }
 
 
   public Type(String name, boolean isInterface, boolean isOpen, CustomList<CustomList<Variable>> constructors, 
-    CustomList<Function> memberFunctions, CustomList<Variable> properties, CustomList<Type> superTypes) {
+    CustomList<Function> memberFunctions, CustomList<Variable> properties, CustomList<Type> superTypes,
+    CustomList<Pair<String, Type>> typeArguments) {
       super(name);
       this.isInterface = isInterface;
       this.isOpen = isOpen;
@@ -48,6 +52,7 @@ public class Type extends Symbol implements Printable{
       this.memberFunctions = memberFunctions;
       this.properties = properties;
       this.supertypes = superTypes;
+      this.typeArguments = typeArguments;
     }
 
   public Type(String name) {
@@ -58,25 +63,43 @@ public class Type extends Symbol implements Printable{
     this.memberFunctions = new CustomList<>();
     this.properties = new CustomList<>();
     this.supertypes = new CustomList<>();
+    this.typeArguments = new CustomList<>();
   }
 
   @Override
   public Type clone() {
-    return new Type(name, isInterface, isOpen, constructors.clone(), memberFunctions.clone(), properties.clone(), supertypes.clone());
+    return new Type(name, isInterface, isOpen, constructors.clone(), memberFunctions.clone(), properties.clone(), supertypes.clone(), typeArguments.clone());
   }
 
 
   public static final boolean assignable(final Type sourceType, final Type targetType) {
-    if (sourceType.equals(targetType)) {
-      return true;
-    } else {
+    String sourceClassName = sourceType.name.split("<")[0];  
+    String targetClassName = targetType.name.split("<")[0];  
+
+    if (!sourceClassName.equals(targetClassName)) {
       for (Type t : sourceType.supertypes.items) {
         if (assignable(t, targetType)) {
           return true;
         }
       }
+      return false;
     }
-    return false;
+
+    assert(sourceType.typeArguments.items.size() == targetType.typeArguments.items.size());
+
+    for (int i = 0; i < sourceType.typeArguments.items.size(); i++) {
+      Pair<String, Type> sourceTypeArg = sourceType.typeArguments.items.get(i);
+      Pair<String, Type> targetTypeArg = targetType.typeArguments.items.get(i);
+      if (targetTypeArg.first.equals("inv")) {
+        return sourceTypeArg.second.name.equals(targetTypeArg.second.name);
+      } else if (targetTypeArg.first.equals("out")) {
+        return assignable(sourceTypeArg.second, targetTypeArg.second);
+      } else {
+        assert(targetTypeArg.first.equals("in"));
+        return assignable(targetTypeArg.second, sourceTypeArg.second);
+      }
+    }
+    return true;
   }
 
   public static boolean containsNoClasses(CustomList<Type> types) {

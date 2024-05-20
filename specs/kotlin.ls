@@ -7,6 +7,7 @@ use Variable;
 use GeneratorClassHelper;
 use TypeParam;
 use AbstractType;
+use Pair;
 
 class Program {
   prog("${decls : OptionalGlobalDeclarationList}
@@ -149,10 +150,26 @@ class TypeParameter {
 
   syn type_param : Type;
 
-  type_param("${ident: DefIdentifier}") {
+  type_param("${mod : OptionalVarianceModifier}${ident : DefIdentifier}") {
     ident.symbols_before = this.symbols_before;
 
-    this.type_param = (TypeParam:create ident.name);
+    this.type_param = (TypeParam:create ident.name mod.modifier);
+  }
+}
+
+class OptionalVarianceModifier {
+  syn modifier : String;
+
+  none("") {
+    this.modifier = "inv";
+  }
+
+  in("in ") {
+    this.modifier = "in";
+  }
+
+  out("out ") {
+    this.modifier = "out";
   }
 }
 
@@ -496,6 +513,9 @@ class ClassMember {
 }
 
 class PropertyDeclaration {  
+  grd valid;
+  grd valid2;
+
   syn symbol : Variable;
 
   inh symbols_before : SymbolTable;
@@ -507,6 +527,9 @@ class PropertyDeclaration {
     loc has_all_accessors = (and getter.has_getter (or (not mod.is_mutable) setter.has_setter));
     loc mutable_and_missing_accessor = (and mod.is_mutable (or (and (not getter.has_getter) setter.has_setter) (and getter.has_getter (not setter.has_setter))));
     loc is_abstract = (and this.is_interface .no_custom_accessor);
+
+    this.valid = (not (TypeParam:isContravariant (if type.has_type type.type init.type)));
+    this.valid2 = (not (and (TypeParam:isCovariant (if type.has_type type.type init.type)) mod.is_mutable));
 
     type.symbols_before = this.symbols_before;
     type.required = true;
@@ -723,6 +746,7 @@ class ConstructorParameterDeclaration {
 
 class FunctionDeclaration {
   grd valid;
+  grd valid2;
 
   syn symbol : Function;
 
@@ -731,6 +755,7 @@ class FunctionDeclaration {
 
   func_decl_no_body ("fun ${name : DefIdentifier}(${params : ParameterDeclarationList})${ret_type : OptionalTypeAnnotation}") {
     this.valid = this.in_interface;
+    this.valid2 = (not (TypeParam:isContravariant ret_type.type));
     name.symbols_before = this.symbols_before;
     params.symbols_before = (SymbolTable:enterScope this.symbols_before);
     ret_type.symbols_before = this.symbols_before;
@@ -743,6 +768,7 @@ class FunctionDeclaration {
       ("fun ${name : DefIdentifier}(${params : ParameterDeclarationList})${ret_type : OptionalTypeAnnotation} = ${expr: Expr}") {
     
     this.valid = true;
+    this.valid2 = (not (TypeParam:isContravariant (if ret_type.has_type ret_type.type (SymbolTable:getKotlinAnyType this.symbols_before))));
     params.symbols_before = (SymbolTable:enterScope this.symbols_before);
     ret_type.symbols_before = this.symbols_before;
     ret_type.required = false;
@@ -758,6 +784,7 @@ class FunctionDeclaration {
         }\n") {
     loc actual_ret_type = (if ret_type.has_type ret_type.type (SymbolTable:getAsType this.symbols_before "Unit"));
     this.valid = true;
+    this.valid2 = (not (TypeParam:isContravariant .actual_ret_type));
     ret_type.symbols_before = this.symbols_before;
     ret_type.required = false;
     params.symbols_before = (SymbolTable:enterScope this.symbols_before);
@@ -795,6 +822,7 @@ class ParameterDeclarationList {
 }
 
 class ParameterDeclaration {
+  grd valid;
 
   syn symbol : Variable;
 
@@ -803,6 +831,8 @@ class ParameterDeclaration {
 
   @copy
   param_decl ("${name : DefIdentifier}: ${type : Type}") {
+    this.valid = (not (TypeParam:isCovariant type.type));
+    
     name.symbols_before = this.symbols_before;
     type.symbols_before = this.symbols_before;
     this.symbol = (Variable:create name.name type.type true this.is_mutable);
@@ -1276,6 +1306,8 @@ class OptionalTypeConstructor {
 
 class TypeConstructorList {
   grd valid;
+  grd valid2;
+  grd valid3;
 
   inh symbols_before : SymbolTable;
   inh type_params : CustomList;
@@ -1283,11 +1315,14 @@ class TypeConstructorList {
   syn type_arguments : CustomList;
   
   one ("${type : Type}") {
+    loc type_param = (CustomList:asTypeParam (CustomList:getHead this.type_params));
     this.valid = (== (CustomList:getSize this.type_params) 1);
+    this.valid2 = (not (and (TypeParam:isCovariant .type_param) (TypeParam:isContravariant type.type)));
+    this.valid3 = (not (and (TypeParam:isContravariant .type_param) (TypeParam:isCovariant type.type)));
     
     type.symbols_before = this.symbols_before;
     
-    this.type_arguments = (CustomList:create type.type);
+    this.type_arguments = (CustomList:create (Pair:create (TypeParam:getVariance .type_param) type.type));
   }
 }
 

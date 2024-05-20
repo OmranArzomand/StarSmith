@@ -7,16 +7,16 @@ public class AbstractType extends Type {
   public final CustomList<Type> concreteInstances;
 
   public AbstractType(String name, boolean isInterface, boolean isOpen, CustomList<CustomList<Variable>> constructors, 
-    CustomList<Function> memberFunctions, CustomList<Variable> properties, CustomList<Type> supertypes, CustomList<TypeParam> typeParams,
-    CustomList<Type> concreteInstances) {
-    super(name, isInterface, isOpen, constructors, memberFunctions, properties, supertypes);
+    CustomList<Function> memberFunctions, CustomList<Variable> properties, CustomList<Type> supertypes, 
+    CustomList<Pair<String, Type>> typeArguments, CustomList<TypeParam> typeParams, CustomList<Type> concreteInstances) {
+    super(name, isInterface, isOpen, constructors, memberFunctions, properties, supertypes, typeArguments);
     this.typeParams = typeParams;
     this.concreteInstances = concreteInstances;
   }
 
   public static Type create(String name, boolean isInterface, boolean isOpen, CustomList<CustomList<Variable>> constructors, 
   CustomList<Variable> properties, CustomList<Type> supertypes, CustomList<TypeParam> typeParams) {
-    return new AbstractType(name, isInterface, isOpen, constructors, new CustomList<>(), properties, supertypes, typeParams, new CustomList<>());
+    return new AbstractType(name, isInterface, isOpen, constructors, new CustomList<>(), properties, supertypes, new CustomList<>(), typeParams, new CustomList<>());
   }
 
   public static boolean isAbstractType(Type type) {
@@ -39,51 +39,51 @@ public class AbstractType extends Type {
     return abstractType;
   }
 
-  public static Type instantiate(AbstractType type, CustomList<Type> typeArguments) {
+  public static Type instantiate(AbstractType type, CustomList<Pair<String, Type>> typeArguments) {
     StringBuilder sb = new StringBuilder();
     sb.append(type.name);
     sb.append("<");
     boolean first = true;
-    for (Type typeArgument : typeArguments.items) {
+    for (Pair<String, Type> typeArgument : typeArguments.items) {
       if (!first) {
         sb.append(", ");
         first = false;
       }
-      sb.append(typeArgument.name);
+      sb.append(typeArgument.second.name);
     }
     sb.append(">");
-    Type clone = new Type(sb.toString(), type.isInterface, type.isOpen, type.constructors.clone(), type.memberFunctions.clone(), type.properties.clone(), type.supertypes.clone());
-    for (CustomList<Variable> constructor : clone.constructors.items) {
+    Type concrete = new Type(sb.toString(), type.isInterface, type.isOpen, type.constructors.clone(), type.memberFunctions.clone(), type.properties.clone(), type.supertypes.clone(), typeArguments);
+    for (CustomList<Variable> constructor : concrete.constructors.items) {
       for (Variable param : constructor.items) {
         int index = type.typeParams.indexOf(param.type);
         if (index != -1) {
-          param.type = typeArguments.items.get(index);
+          param.type = typeArguments.items.get(index).second;
         }
       }
     }
-    for (Function memberFunction : clone.memberFunctions.items) {
+    for (Function memberFunction : concrete.memberFunctions.items) {
       for (Variable param : memberFunction.params.items) {
         int index = type.typeParams.indexOf(param.type);
         if (index != -1) {
-          param.type = typeArguments.items.get(index);
+          param.type = typeArguments.items.get(index).second;
         }
       }
       int index = type.typeParams.indexOf(memberFunction.returnType);
       if (index != -1) {
-        memberFunction.returnType = typeArguments.items.get(index);
+        memberFunction.returnType = typeArguments.items.get(index).second;
       }
     }
-    for (Variable property : clone.properties.items) {
+    for (Variable property : concrete.properties.items) {
       int index = type.typeParams.indexOf(property.type);
       if (index != -1) {
-        property.type = typeArguments.items.get(index);
+        property.type = typeArguments.items.get(index).second;
       }
     }
-    return clone;
+    return concrete;
   }
 
   @Override 
   public AbstractType clone() {
-    return new AbstractType(name, isInterface, isOpen, constructors.clone(), memberFunctions.clone(), properties.clone(), supertypes.clone(), typeParams.clone(), concreteInstances.clone());
+    return new AbstractType(name, isInterface, isOpen, constructors.clone(), memberFunctions.clone(), properties.clone(), supertypes.clone(), typeArguments.clone(), typeParams.clone(), concreteInstances.clone());
   }
 }

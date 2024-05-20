@@ -98,6 +98,10 @@ public class CustomList<T extends Cloneable> implements Printable, Cloneable {
   public static Type asType(Object o) {
     return (Type) o;
   }
+
+  public static TypeParam asTypeParam(Object o) {
+    return (TypeParam) o;
+  }
   
   public static <U extends Cloneable> U random(CustomList<U> list) {
     int randomIndex = (int) (Math.random() * list.items.size());
