@@ -1,5 +1,8 @@
 package runtime;
 
+import java.util.List;
+import java.util.ArrayList;
+
 import i2.act.fuzzer.runtime.Printable;
 
 public class AbstractType extends Type {
@@ -40,46 +43,106 @@ public class AbstractType extends Type {
   }
 
   public static Type instantiate(AbstractType type, CustomList<Pair<String, Type>> typeArguments) {
+    List<Type> useSiteCovariantTypes = new ArrayList<>();
+    List<Type>useSiteContravaraintTypes = new ArrayList<>();
+
     StringBuilder sb = new StringBuilder();
     sb.append(type.name);
     sb.append("<");
     boolean first = true;
-    for (Pair<String, Type> typeArgument : typeArguments.items) {
+    for (int i = 0; i < typeArguments.items.size(); i++) {
+      Pair<String, Type> typeArgument = typeArguments.items.get(i);
+      TypeParam typeParam = type.typeParams.items.get(i);
       if (!first) {
         sb.append(", ");
         first = false;
       }
+      if (!(typeParam.variance.equals(typeArgument.first))) {
+        // use site variance occured
+        if (typeArgument.first.equals("in")) {
+          useSiteContravaraintTypes.add(typeParam);
+        } else {
+          useSiteCovariantTypes.add(typeParam);
+        }
+        sb.append(typeArgument.first);
+        sb.append(" ");
+      }
       sb.append(typeArgument.second.name);
     }
+
     sb.append(">");
-    Type concrete = new Type(sb.toString(), type.isInterface, type.isOpen, type.constructors.clone(), type.memberFunctions.clone(), type.properties.clone(), type.supertypes.clone(), typeArguments);
-    for (CustomList<Variable> constructor : concrete.constructors.items) {
-      for (Variable param : constructor.items) {
+    List<Function> concreteFunctions = new ArrayList<>();
+    for (Function abstractFunction : type.memberFunctions.items) {
+      boolean valid = true;
+      if (useSiteContravaraintTypes.contains(abstractFunction.returnType)) {
+        valid = false;
+      }
+      for (Variable param : abstractFunction.params.items) {
+        if (useSiteCovariantTypes.contains(param.type)) {
+          valid = false;
+        }
+      }
+      if (!valid) {
+        continue;
+      }
+      Function concreteFunction = abstractFunction.clone();
+      {
+        int index = type.typeParams.indexOf(concreteFunction.returnType);
+        if (index != -1) {
+          concreteFunction.returnType = typeArguments.items.get(index).second;
+        }
+      }
+      for (Variable param : concreteFunction.params.items) {
         int index = type.typeParams.indexOf(param.type);
         if (index != -1) {
           param.type = typeArguments.items.get(index).second;
         }
       }
+      concreteFunctions.add(concreteFunction);
     }
-    for (Function memberFunction : concrete.memberFunctions.items) {
-      for (Variable param : memberFunction.params.items) {
+
+    List<CustomList<Variable>> concreteConstructors = new ArrayList<>();
+    for (CustomList<Variable> abstractConstructor : type.constructors.items) {
+      boolean valid = true;
+      for (Variable param : abstractConstructor.items) {
+        if (useSiteCovariantTypes.contains(param.type)) {
+          valid = false;
+        }
+      }
+      if (!valid) {
+        continue;
+      }
+      CustomList<Variable> concreteConstructor = abstractConstructor.clone();
+      for (Variable param : concreteConstructor.items) {
         int index = type.typeParams.indexOf(param.type);
         if (index != -1) {
           param.type = typeArguments.items.get(index).second;
         }
       }
-      int index = type.typeParams.indexOf(memberFunction.returnType);
-      if (index != -1) {
-        memberFunction.returnType = typeArguments.items.get(index).second;
-      }
+      concreteConstructors.add(concreteConstructor);
     }
-    for (Variable property : concrete.properties.items) {
-      int index = type.typeParams.indexOf(property.type);
-      if (index != -1) {
-        property.type = typeArguments.items.get(index).second;
-      }
+    if (useSiteContravaraintTypes.size() != 0 || useSiteCovariantTypes.size() != 0) {
+      concreteConstructors = new ArrayList<>();
     }
-    return concrete;
+    List<Variable> concreteProperties = new ArrayList<>();
+    for (Variable abstractProperty : type.properties.items) {
+      boolean valid = true;
+      if (useSiteContravaraintTypes.contains(abstractProperty.type) 
+          || (abstractProperty.isMutable && useSiteCovariantTypes.contains(abstractProperty.type))) {
+        valid = false;
+      }
+      if (!valid) {
+        continue;
+      }
+      Variable concreteProperty = abstractProperty.clone();
+      int index = type.typeParams.indexOf(concreteProperty.type);
+      if (index != -1) {
+        concreteProperty.type = typeArguments.items.get(index).second;
+      }
+      concreteProperties.add(abstractProperty);
+    }
+
+    return new Type(sb.toString(), type.isInterface, type.isOpen, new CustomList<>(concreteConstructors), new CustomList<>(concreteFunctions), new CustomList<>(concreteProperties), type.supertypes.clone(), typeArguments);   
   }
 
   @Override 

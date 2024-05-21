@@ -50,6 +50,36 @@ public class Function extends Symbol implements Printable {
     return function.name;
   }
 
+  public static boolean paramsClash(CustomList<CustomList<Variable>> listOfParams, CustomList<Variable> params) {
+    for (CustomList<Variable> otherParams : listOfParams.items) {
+      if (params.items.size() != otherParams.items.size()) {
+        continue;
+      }
+      boolean hasDifferentSignature = false;
+      for (int i = 0; i < params.items.size(); i++) {
+        Variable param = params.items.get(i);
+        Variable otherParam = otherParams.items.get(i);
+        if (!Type.assignable(param.type, otherParam.type)) {
+          //params different
+          hasDifferentSignature = true;
+          break;
+        }
+      }
+      if (!hasDifferentSignature) {
+        System.out.println("clash ");
+        for (Variable p : params.items) {
+          System.out.print(" " + p.type);
+        }
+        System.out.println();
+        for (Variable p : otherParams.items) {
+          System.out.print(" " + p.type);
+        }
+        return true;
+      }
+    }
+    return false;
+  }
+
   @Override
   public boolean equals(Object obj) {
     if (!(obj instanceof Function)) {

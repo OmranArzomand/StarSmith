@@ -26,6 +26,10 @@ public class TypeParam extends Type {
     return typeParam.variance;
   }
 
+  public static boolean isInvariant(TypeParam typeParam) {
+    return typeParam.variance.equals("inv");
+  }
+
   public static boolean isContravariant(Type type) {
     if (!(type instanceof TypeParam)) {
       return false;

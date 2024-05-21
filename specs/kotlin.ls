@@ -151,6 +151,8 @@ class TypeParameter {
   syn type_param : Type;
 
   type_param("${mod : OptionalVarianceModifier}${ident : DefIdentifier}") {
+    mod.allow_modifier = true;
+
     ident.symbols_before = this.symbols_before;
 
     this.type_param = (TypeParam:create ident.name mod.modifier);
@@ -158,17 +160,27 @@ class TypeParameter {
 }
 
 class OptionalVarianceModifier {
+  grd valid;
+
+  inh allow_modifier : boolean;
+
   syn modifier : String;
 
   none("") {
+    this.valid = true;
+
     this.modifier = "inv";
   }
 
   in("in ") {
+    this.valid = this.allow_modifier;
+
     this.modifier = "in";
   }
 
   out("out ") {
+    this.valid = this.allow_modifier;
+
     this.modifier = "out";
   }
 }
@@ -495,9 +507,7 @@ class ClassMember {
   }
 
   secondary_constructor ("constructor (${params : ParameterDeclarationList})${delagation : OptionalConstructorDelegation} {\+${stmts : StmtList}\-}") {
-    loc this_object = (Variable:create "this" this.class_type_before true false);
-
-    this.valid = (not (CustomList:contains (Type:getConstructors this.class_type_before) params.params));
+    this.valid = (not (Function:paramsClash (Type:getConstructors this.class_type_before) params.params));
     this.valid2 = (not (Type:isInterface this.class_type_before));
 
     params.symbols_before = (SymbolTable:enterScope this.symbols_before);
@@ -505,7 +515,7 @@ class ClassMember {
     delagation.symbols_before = (SymbolTable:putAll (SymbolTable:exitScope this.symbols_before) params.params);
     delagation.class_type_before = this.class_type_before;
 
-    stmts.symbols_before = (SymbolTable:put (SymbolTable:put params.symbols_after this.class_type_before) .this_object);
+    stmts.symbols_before = (SymbolTable:put params.symbols_after this.class_type_before);
 
     this.symbols_after = this.symbols_before;
     this.class_type_after = (Type:addConstrcutor this.class_type_before params.params);
@@ -718,11 +728,15 @@ class ConstructorList {
 }
 
 class ConstructorParameterDeclaration {
+  grd valid;
+
   inh symbols_before : SymbolTable;
   syn symbol : Variable;
   syn add_to_properties : boolean;
 
   no_property("${param : ParameterDeclaration}") {
+    this.valid = true;
+
     param.symbols_before = this.symbols_before;
     param.is_mutable = false;
     this.symbol = param.symbol;
@@ -730,6 +744,8 @@ class ConstructorParameterDeclaration {
   }
 
   val_property("val ${param : ParameterDeclaration}") {
+    this.valid = (not (TypeParam:isContravariant (Variable:getType param.symbol)));
+
     param.symbols_before = this.symbols_before;
     param.is_mutable = false;
     this.symbol = param.symbol;
@@ -737,6 +753,8 @@ class ConstructorParameterDeclaration {
   }
 
   var_property("var ${param : ParameterDeclaration}") {
+    this.valid = (not (TypeParam:isContravariant (Variable:getType param.symbol)));
+
     param.symbols_before = this.symbols_before;
     param.is_mutable = true;
     this.symbol = param.symbol;
@@ -1314,15 +1332,18 @@ class TypeConstructorList {
 
   syn type_arguments : CustomList;
   
-  one ("${type : Type}") {
+  one ("${use_site_mod : OptionalVarianceModifier}${type : Type}") {
     loc type_param = (CustomList:asTypeParam (CustomList:getHead this.type_params));
+    loc actual_variance = (if (TypeParam:isInvariant .type_param) use_site_mod.modifier (TypeParam:getVariance .type_param));
     this.valid = (== (CustomList:getSize this.type_params) 1);
     this.valid2 = (not (and (TypeParam:isCovariant .type_param) (TypeParam:isContravariant type.type)));
     this.valid3 = (not (and (TypeParam:isContravariant .type_param) (TypeParam:isCovariant type.type)));
+
+    use_site_mod.allow_modifier = (TypeParam:isInvariant .type_param);
     
     type.symbols_before = this.symbols_before;
     
-    this.type_arguments = (CustomList:create (Pair:create (TypeParam:getVariance .type_param) type.type));
+    this.type_arguments = (CustomList:create (Pair:create .actual_variance type.type));
   }
 }
 

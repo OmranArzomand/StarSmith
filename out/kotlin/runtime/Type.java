@@ -85,18 +85,33 @@ public class Type extends Symbol implements Printable{
       return false;
     }
 
+    if (!(sourceType.typeArguments.items.size() == targetType.typeArguments.items.size())) {
+      System.out.println("XXXXXXXXXXX WENT BAD XXXXXXXXXXXX");
+      return false;
+    }
     assert(sourceType.typeArguments.items.size() == targetType.typeArguments.items.size());
 
     for (int i = 0; i < sourceType.typeArguments.items.size(); i++) {
       Pair<String, Type> sourceTypeArg = sourceType.typeArguments.items.get(i);
       Pair<String, Type> targetTypeArg = targetType.typeArguments.items.get(i);
       if (targetTypeArg.first.equals("inv")) {
-        return sourceTypeArg.second.name.equals(targetTypeArg.second.name);
-      } else if (targetTypeArg.first.equals("out")) {
-        return assignable(sourceTypeArg.second, targetTypeArg.second);
+        if (sourceTypeArg.first.equals("inv")) {
+          return sourceTypeArg.second.name.equals(targetTypeArg.second.name);
+        } else {
+          return false;
+        }
+      } else if (targetTypeArg.first.equals("in")) {
+        if (sourceTypeArg.first.equals("out")) {
+          return false;
+        } else {
+          return assignable(targetTypeArg.second, sourceTypeArg.second);
+        }
       } else {
-        assert(targetTypeArg.first.equals("in"));
-        return assignable(targetTypeArg.second, sourceTypeArg.second);
+        if (sourceTypeArg.first.equals("in")) {
+          return false;
+        } else {
+          return assignable(sourceTypeArg.second, targetTypeArg.second);
+        }
       }
     }
     return true;

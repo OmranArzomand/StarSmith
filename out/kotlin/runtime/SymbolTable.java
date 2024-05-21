@@ -172,13 +172,31 @@ public final class SymbolTable {
         visibleTypes.add(type);
         if (type instanceof AbstractType) {
           AbstractType abstractType = (AbstractType) type;
+          List<Type> invalidConcreteInstances = new ArrayList<>();
           for (Type t : abstractType.concreteInstances.items) {
-            visibleTypes.add(t);
+            if (concreteInstanceStillValid(symbolTable, t)) {
+              visibleTypes.add(t);
+            } else {
+              invalidConcreteInstances.add(t);
+            }
           }
+          abstractType.concreteInstances.items.removeAll(invalidConcreteInstances);
         }
       }
     }
     return visibleTypes;
+  }
+
+  public static final boolean concreteInstanceStillValid(final SymbolTable symbolTable, Type type) {
+    if (type instanceof TypeParam) {
+      return SymbolTable.contains(symbolTable, type.name);
+    }
+    for (Pair<String, Type> p : type.typeArguments.items) {
+      if (!concreteInstanceStillValid(symbolTable, p.second)) {
+        return false;
+      }
+    }
+    return true;
   }
 
   public static final List<Type> visibleTypes(final SymbolTable symbolTable) {
