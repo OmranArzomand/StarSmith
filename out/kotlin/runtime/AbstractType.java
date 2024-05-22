@@ -98,6 +98,10 @@ public class AbstractType extends Type {
           param.type = typeArguments.items.get(index).second;
         }
       }
+      if (abstractFunction instanceof AbstractFunction) {
+        AbstractFunction f = (AbstractFunction) abstractFunction;
+        f.concreteInstances.items.clear();
+      }
       concreteFunctions.add(concreteFunction);
     }
 
@@ -139,7 +143,7 @@ public class AbstractType extends Type {
       if (index != -1) {
         concreteProperty.type = typeArguments.items.get(index).second;
       }
-      concreteProperties.add(abstractProperty);
+      concreteProperties.add(concreteProperty);
     }
 
     return new Type(sb.toString(), type.isInterface, type.isOpen, new CustomList<>(concreteConstructors), new CustomList<>(concreteFunctions), new CustomList<>(concreteProperties), type.supertypes.clone(), typeArguments);   
@@ -147,6 +151,6 @@ public class AbstractType extends Type {
 
   @Override 
   public AbstractType clone() {
-    return new AbstractType(name, isInterface, isOpen, constructors.clone(), memberFunctions.clone(), properties.clone(), supertypes.clone(), typeArguments.clone(), typeParams.clone(), concreteInstances.clone());
+    return new AbstractType(name, isInterface, isOpen, constructors.clone(), memberFunctions.clone(), properties.clone(), supertypes, typeArguments, typeParams, concreteInstances);
   }
 }

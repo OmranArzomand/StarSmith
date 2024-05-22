@@ -199,6 +199,18 @@ public final class SymbolTable {
     return true;
   }
 
+  public static final boolean concreteInstanceStillValid(final SymbolTable symbolTable, Function function) {
+    for (Variable param : function.params.items) {
+      if (!concreteInstanceStillValid(symbolTable, param.type)) {
+        return false;
+      }
+    }
+    if (!concreteInstanceStillValid(symbolTable, function.returnType)) {
+      return false;
+    }
+    return true;
+  }
+
   public static final List<Type> visibleTypes(final SymbolTable symbolTable) {
     return visibleTypes(symbolTable, true, false, true);
   }
@@ -282,18 +294,54 @@ public final class SymbolTable {
         Function function = (Function) symbol;
         if (expectedReturnType == null || Type.assignable(function.returnType, expectedReturnType)) {
           visibleFunctions.add(function);
+          if (function instanceof AbstractFunction) {
+            AbstractFunction abstractFunction = (AbstractFunction) function;
+            List<Integer> invalidInstanceIndeces = new ArrayList<>();
+            int counter = 0;
+            for (Function concreteInstance : abstractFunction.concreteInstances.items) {
+              if (expectedReturnType == null || Type.assignable(concreteInstance.returnType, expectedReturnType)) {
+                if (concreteInstanceStillValid(symbolTable, concreteInstance)) {
+                  visibleFunctions.add(concreteInstance);
+                } else {
+                  invalidInstanceIndeces.add(0, counter);
+                }
+              }
+              counter++;
+            }
+            for (Integer i : invalidInstanceIndeces) {
+              abstractFunction.concreteInstances.items.remove(i);
+            }
+          }
         }
       }
     }
     return visibleFunctions;
   }
 
-  public static final List<Function> visibleMemberFunctions(final Type calleeType, final Type expectedReturnType) {
+  public static final List<Function> visibleMemberFunctions(final Type calleeType, final SymbolTable symbolTable, final Type expectedReturnType) {
     final List<Function> visibleMemberFunctions = new ArrayList<>();
 
     for (Function function : calleeType.memberFunctions.items) {
       if (Type.assignable(function.returnType, expectedReturnType)) {
         visibleMemberFunctions.add(function);
+        if (function instanceof AbstractFunction) {
+          AbstractFunction abstractFunction = (AbstractFunction) function;
+          List<Integer> invalidInstanceIndeces = new ArrayList<>();
+          int counter = 0;
+          for (Function concreteInstance : abstractFunction.concreteInstances.items) {
+            if (Type.assignable(concreteInstance.returnType, expectedReturnType)) {
+              if (concreteInstanceStillValid(symbolTable, concreteInstance)) {
+                visibleMemberFunctions.add(concreteInstance);
+              } else {
+                invalidInstanceIndeces.add(0, counter);
+              }
+            }
+            counter++;
+          }
+          for (Integer i : invalidInstanceIndeces) {
+            abstractFunction.concreteInstances.items.remove(i);
+          }
+        }
       }
     }
     return visibleMemberFunctions;

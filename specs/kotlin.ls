@@ -8,6 +8,7 @@ use GeneratorClassHelper;
 use TypeParam;
 use AbstractType;
 use Pair;
+use AbstractFunction;
 
 class Program {
   prog("${decls : OptionalGlobalDeclarationList}
@@ -94,6 +95,7 @@ class ClassDeclaration {
     ident.symbols_before = this.symbols_before;
 
     type_params.symbols_before = (SymbolTable:enterScope this.symbols_before);
+    type_params.allow_modifier = true;
 
     primary_constructor.symbols_before = type_params.symbols_after;
     primary_constructor.is_interface = class_or_interface.is_interface;
@@ -114,6 +116,7 @@ class ClassDeclaration {
 
 class OptionalTypeParamters {
   inh symbols_before : SymbolTable;
+  inh allow_modifier : boolean;
 
   syn type_params : CustomList;
   syn symbols_after : SymbolTable;
@@ -123,8 +126,10 @@ class OptionalTypeParamters {
     this.symbols_after = this.symbols_before;
   }
 
-  type_params ("<${list : TypeParameterList}>") {
+  type_params ("<${list : TypeParameterList}> ") {
     list.symbols_before = this.symbols_before;
+    list.allow_modifier = this.allow_modifier;
+
     this.type_params = list.type_params;
     this.symbols_after = list.symbols_after;
   }
@@ -133,12 +138,14 @@ class OptionalTypeParamters {
 @list(2)
 class TypeParameterList {
   inh symbols_before : SymbolTable;
+  inh allow_modifier : boolean;
 
   syn type_params : CustomList;
   syn symbols_after : SymbolTable;
 
   one ("${type_param : TypeParameter}") {
     type_param.symbols_before = this.symbols_before;
+    type_param.allow_modifier = this.allow_modifier;
 
     this.type_params = (CustomList:create type_param.type_param);
     this.symbols_after = (SymbolTable:put this.symbols_before type_param.type_param);
@@ -147,11 +154,12 @@ class TypeParameterList {
 
 class TypeParameter {
   inh symbols_before : SymbolTable;
+  inh allow_modifier : boolean;
 
   syn type_param : Type;
 
   type_param("${mod : OptionalVarianceModifier}${ident : DefIdentifier}") {
-    mod.allow_modifier = true;
+    mod.allow_modifier = this.allow_modifier;
 
     ident.symbols_before = this.symbols_before;
 
@@ -771,45 +779,79 @@ class FunctionDeclaration {
   inh symbols_before : SymbolTable;
   inh in_interface : boolean;
 
-  func_decl_no_body ("fun ${name : DefIdentifier}(${params : ParameterDeclarationList})${ret_type : OptionalTypeAnnotation}") {
+  func_decl_no_body ("fun ${type_params : OptionalTypeParamters}${name : DefIdentifier}(${params : ParameterDeclarationList})${ret_type : OptionalTypeAnnotation}") {
+    loc function_symbol = (if (== (CustomList:getSize type_params.type_params) 0)
+      (Function:create name.name ret_type.type params.params true)
+      (AbstractFunction:create name.name ret_type.type params.params true type_params.type_params)
+    );
     this.valid = this.in_interface;
     this.valid2 = (not (TypeParam:isContravariant ret_type.type));
+
+    type_params.symbols_before = (SymbolTable:enterScope this.symbols_before);
+    type_params.allow_modifier = false;
+
     name.symbols_before = this.symbols_before;
-    params.symbols_before = (SymbolTable:enterScope this.symbols_before);
-    ret_type.symbols_before = this.symbols_before;
+
+    params.symbols_before = type_params.symbols_after;
+
+    ret_type.symbols_before = type_params.symbols_after;
     ret_type.required = true;
-    this.symbol = (Function:create name.name ret_type.type params.params true);
+
+    this.symbol = .function_symbol;
 
   }
 
   func_decl_expr
-      ("fun ${name : DefIdentifier}(${params : ParameterDeclarationList})${ret_type : OptionalTypeAnnotation} = ${expr: Expr}") {
-    
+      ("fun ${type_params : OptionalTypeParamters}${name : DefIdentifier}(${params : ParameterDeclarationList})${ret_type : OptionalTypeAnnotation} = ${expr: Expr}") {
+    loc function_symbol = (if (== (CustomList:getSize type_params.type_params) 0)
+      (Function:create name.name (if ret_type.has_type ret_type.type expr.type) params.params )
+      (AbstractFunction:create name.name (if ret_type.has_type ret_type.type expr.type) params.params false type_params.type_params)
+    );
     this.valid = true;
     this.valid2 = (not (TypeParam:isContravariant (if ret_type.has_type ret_type.type (SymbolTable:getKotlinAnyType this.symbols_before))));
-    params.symbols_before = (SymbolTable:enterScope this.symbols_before);
-    ret_type.symbols_before = this.symbols_before;
+
+    type_params.symbols_before = (SymbolTable:enterScope this.symbols_before);
+    type_params.allow_modifier = false;
+
+    name.symbols_before = this.symbols_before;
+
+    params.symbols_before = type_params.symbols_after;
+
+    ret_type.symbols_before = type_params.symbols_after;
     ret_type.required = false;
+
     expr.symbols_before = params.symbols_after;
     expr.expected_type = (if ret_type.has_type ret_type.type (SymbolTable:getKotlinAnyType this.symbols_before));
-    name.symbols_before = this.symbols_before;
-    this.symbol = (Function:create name.name (if ret_type.has_type ret_type.type expr.type) params.params );
+
+    this.symbol = .function_symbol;
   }
 
   func_decl
-      ("fun ${name : DefIdentifier}(${params : ParameterDeclarationList})${ret_type : OptionalTypeAnnotation} {\+
+      ("fun ${type_params : OptionalTypeParamters}${name : DefIdentifier}(${params : ParameterDeclarationList})${ret_type : OptionalTypeAnnotation} {\+
           ${body : FunctionBody}\-
         }\n") {
     loc actual_ret_type = (if ret_type.has_type ret_type.type (SymbolTable:getAsType this.symbols_before "Unit"));
+    loc function_symbol = (if (== (CustomList:getSize type_params.type_params) 0)
+      (Function:create name.name .actual_ret_type params.params)
+      (AbstractFunction:create name.name .actual_ret_type params.params false type_params.type_params)
+    );
     this.valid = true;
     this.valid2 = (not (TypeParam:isContravariant .actual_ret_type));
-    ret_type.symbols_before = this.symbols_before;
+
+    type_params.symbols_before = (SymbolTable:enterScope this.symbols_before);
+    type_params.allow_modifier = false;
+
+    name.symbols_before = this.symbols_before;
+
+    params.symbols_before = type_params.symbols_after;
+
+    ret_type.symbols_before = type_params.symbols_after;
     ret_type.required = false;
-    params.symbols_before = (SymbolTable:enterScope this.symbols_before);
+
     body.symbols_before = params.symbols_after;
     body.expected_return_type = .actual_ret_type;
-    name.symbols_before = this.symbols_before;
-    this.symbol = (Function:create name.name .actual_ret_type params.params);
+
+    this.symbol = .function_symbol;
   }
 
 }
@@ -1045,6 +1087,7 @@ class MemberFunctionCall {
 
     member_function_callee.expected_return_type = this.expected_type;
     member_function_callee.callee_type = expr.type;
+    member_function_callee.symbols_before = this.symbols_before;
 
     args.expected_params = (Function:getParams member_function_callee.symbol);
     args.symbols_before = this.symbols_before;
@@ -1110,15 +1153,19 @@ class ArgumentList {
 class MemberFunctionCallee {
   inh expected_return_type : Type;
   inh callee_type : Type;
+  inh symbols_before : SymbolTable;
 
   syn symbol : Function;
 
-  callee ("${member_function : UseMemberFunctionIdentifier}") {
+  callee ("${member_function : UseMemberFunctionIdentifier}${type_constructor : OptionalFunctionTypeConstructor}") {
     member_function.expected_return_type = this.expected_return_type;
     member_function.callee_type = this.callee_type;
+    member_function.symbols_before = this.symbols_before;
 
-    this.symbol = member_function.symbol;
+    type_constructor.symbols_before = this.symbols_before;
+    type_constructor.function_before = member_function.symbol;
 
+    this.symbol = type_constructor.function_after;
   }
 }
 
@@ -1130,14 +1177,63 @@ class Callee {
   syn symbol : Function;
 
 
-  callee ("${func : UseFunctionIdentifier}") {
+  callee ("${func : UseFunctionIdentifier}${type_constructor : OptionalFunctionTypeConstructor}") {
     func.expected_return_type = this.expected_return_type;
     func.symbols_before = this.symbols_before;
 
-    this.symbol = func.symbol;
+    type_constructor.symbols_before = this.symbols_before;
+    type_constructor.function_before = func.symbol;
+
+    this.symbol = type_constructor.function_after;
 
   }
 
+}
+
+class OptionalFunctionTypeConstructor {
+  grd valid;
+
+  inh symbols_before : SymbolTable;
+  inh function_before : Function;
+
+  syn function_after : Function;
+  syn symbols_after : SymbolTable;
+
+  no_constructor ("") {
+    this.valid = (not (AbstractFunction:isAbstractFunction this.function_before));
+    this.function_after = this.function_before; 
+    this.symbols_after = this.symbols_before;
+  }
+
+  constructor ("<${constructor : FunctionTypeConstructorList}>") {
+    loc abstract_function = (AbstractFunction:asAbstractFunction this.function_before);
+    loc concrete_function = (AbstractFunction:instantiate .abstract_function constructor.type_arguments);
+    this.valid = (AbstractFunction:isAbstractFunction this.function_before);
+
+    constructor.symbols_before = this.symbols_before;
+    constructor.type_params = (AbstractFunction:getTypeParams .abstract_function);
+
+    this.function_after = .concrete_function;
+    this.symbols_after = (SymbolTable:nothing this.symbols_before (AbstractFunction:addConcreteInstance .abstract_function .concrete_function));
+  }
+}
+
+class FunctionTypeConstructorList {
+  grd valid;
+
+  inh symbols_before : SymbolTable;
+  inh type_params : CustomList;
+
+  syn type_arguments : CustomList;
+  
+  one ("${type : Type}") {
+    loc type_param = (CustomList:asTypeParam (CustomList:getHead this.type_params));
+    this.valid = (== (CustomList:getSize this.type_params) 1);
+    
+    type.symbols_before = this.symbols_before;
+    
+    this.type_arguments = (CustomList:create (Pair:create "inv" type.type));
+  }
 }
 
 class AssignStmt {
@@ -1645,10 +1741,11 @@ class UseMemberFunctionIdentifier {
 
   inh expected_return_type : Type;
   inh callee_type : Type;
+  inh symbols_before : SymbolTable;
 
   syn symbol : Function;
 
-  use_id (SymbolTable:visibleMemberFunctions this.callee_type this.expected_return_type) : Function {
+  use_id (SymbolTable:visibleMemberFunctions this.callee_type this.symbols_before this.expected_return_type) : Function {
     this.symbol = $;
   }
 

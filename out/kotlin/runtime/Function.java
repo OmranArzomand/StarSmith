@@ -27,7 +27,7 @@ public class Function extends Symbol implements Printable {
 
   @Override
   public Function clone() {
-    return new Function(name, returnType.clone(), params.clone(), isAbstract);
+    return new Function(name, returnType, params.clone(), isAbstract);
   }
 
   public static Function create(String name, Type returnType, CustomList<Variable> params) {

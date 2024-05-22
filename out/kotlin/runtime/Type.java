@@ -68,7 +68,7 @@ public class Type extends Symbol implements Printable{
 
   @Override
   public Type clone() {
-    return new Type(name, isInterface, isOpen, constructors.clone(), memberFunctions.clone(), properties.clone(), supertypes.clone(), typeArguments.clone());
+    return new Type(name, isInterface, isOpen, constructors.clone(), memberFunctions.clone(), properties.clone(), supertypes, typeArguments);
   }
 
 

@@ -48,6 +48,6 @@ public class TypeParam extends Type {
 
   @Override
   public TypeParam clone() {
-    return new TypeParam(name, isInterface, isOpen, constructors.clone(), memberFunctions.clone(), properties.clone(), supertypes.clone(), typeArguments.clone(), variance);
+    return new TypeParam(name, isInterface, isOpen, constructors.clone(), memberFunctions.clone(), properties.clone(), supertypes, typeArguments, variance);
   }
 }

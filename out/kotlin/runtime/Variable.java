@@ -52,7 +52,7 @@ public class Variable extends Symbol implements Printable {
 
   @Override
   public Variable clone() {
-    return new Variable(name, type.clone(), isInitialised, isMutable, isAbstract);
+    return new Variable(name, type, isInitialised, isMutable, isAbstract);
   }
 
   @Override
