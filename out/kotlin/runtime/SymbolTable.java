@@ -176,7 +176,7 @@ public final class SymbolTable {
         if (!typeParam.isReified) {
           continue;
         }
-        visibleTypes.add(type);
+        visibleTypes.add(type); // check if type param upperbound and lhs type are compatible
       } else {
         if (Type.assignable(type, lhsType) || Type.assignable(lhsType, type)) {
           visibleTypes.add(type);
@@ -227,6 +227,11 @@ public final class SymbolTable {
   }
 
   public static final boolean concreteInstanceStillValid(final SymbolTable symbolTable, Function function) {
+    for (Pair<String, Type> p : function.typeArguments.items) {
+      if (!concreteInstanceStillValid(symbolTable, p.second)) {
+        return false;
+      }
+    }
     for (Variable param : function.params.items) {
       if (!concreteInstanceStillValid(symbolTable, param.type)) {
         return false;

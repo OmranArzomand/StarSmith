@@ -85,6 +85,10 @@ public class AbstractType extends Type {
       if (!valid) {
         continue;
       }
+      if (abstractFunction instanceof AbstractFunction) {
+        AbstractFunction a =  (AbstractFunction) abstractFunction;
+        a.concreteInstances.items.clear();
+      }
       Function concreteFunction = abstractFunction.clone();
       {
         int index = type.typeParams.indexOf(concreteFunction.returnType);

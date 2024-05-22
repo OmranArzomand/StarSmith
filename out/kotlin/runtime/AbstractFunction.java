@@ -11,16 +11,16 @@ public class AbstractFunction extends Function {
   public final CustomList<Function> concreteInstances;
 
   public AbstractFunction(String name, Type returnType, CustomList<Variable> params, boolean isAbstract,
-      CustomList<TypeParam> typeParams, CustomList<Function> concreteInstances) {
+    CustomList<Pair<String, Type>> typeArguments, CustomList<TypeParam> typeParams, CustomList<Function> concreteInstances) {
   
-    super(name, returnType, params, isAbstract);
+    super(name, returnType, params, isAbstract, typeArguments);
     this.typeParams = typeParams;
     this.concreteInstances = concreteInstances;
   }
 
   public static Function create(String name, Type returnType, CustomList<Variable> params, boolean isAbstract,
     CustomList<TypeParam> typeParams) {
-      return new AbstractFunction(name, returnType, params, isAbstract, typeParams, new CustomList<>());
+      return new AbstractFunction(name, returnType, params, isAbstract, new CustomList<>(), typeParams, new CustomList<>());
   }
 
   public static boolean isAbstractFunction(Function function) {
@@ -78,11 +78,11 @@ public class AbstractFunction extends Function {
       concreteReturnType = abstractFunction.returnType;
     }
 
-    return new Function(sb.toString(), concreteReturnType, new CustomList<>(concreteParameters), abstractFunction.isAbstract); 
+    return new Function(sb.toString(), concreteReturnType, new CustomList<>(concreteParameters), abstractFunction.isAbstract, typeArguments); 
   }
 
   @Override 
   public AbstractFunction clone() {
-    return new AbstractFunction(name, returnType, params.clone(), isAbstract, typeParams, concreteInstances);
+    return new AbstractFunction(name, returnType, params.clone(), isAbstract, typeArguments, typeParams, concreteInstances);
   }
 }

@@ -6,31 +6,34 @@ public class TypeParam extends Type {
 
   public final String variance;
   public final boolean isReified;
+  public final Type upperbound;
 
-  public TypeParam(String name, String variance, boolean isReified) {
-    super(name, new CustomList<>());
+  public TypeParam(String name, String variance, boolean isReified, Type upperbound, CustomList<Type> supertypes) {
+    super(name, false, false, new CustomList<>(), new CustomList<>(), supertypes);
     this.variance = variance;
     this.isReified = isReified;
+    this.upperbound = upperbound;
   }
 
   public TypeParam(String name, boolean isInterface, boolean isOpen, CustomList<CustomList<Variable>> constructors, 
   CustomList<Function> memberFunctions, CustomList<Variable> properties, CustomList<Type> supertypes,
-  CustomList<Pair<String, Type>> typeArguments, String variance, Boolean isReified) {
+  CustomList<Pair<String, Type>> typeArguments, String variance, Boolean isReified, Type upperbound) {
     super(name, isInterface, isOpen, constructors, memberFunctions, properties, supertypes, typeArguments);
     this.variance = variance;
     this.isReified = isReified;
+    this.upperbound = upperbound;
   }
 
-  public static TypeParam create(String name, String variance) {
-    return new TypeParam(name, variance, false);
-  }
-
-  public static TypeParam create(String name, String variance, boolean isReified) {
-    return new TypeParam(name, variance, isReified);
+  public static TypeParam create(String name, String variance, boolean isReified, Type upperbound, CustomList<Type> supertypes) {
+    return new TypeParam(name, variance, isReified, upperbound, supertypes);
   }
 
   public static String getVariance(TypeParam typeParam) {
     return typeParam.variance;
+  }
+
+  public static Type getUpperbound(TypeParam typeParam) {
+    return typeParam.upperbound;
   }
 
   public static boolean isInvariant(TypeParam typeParam) {
@@ -63,6 +66,6 @@ public class TypeParam extends Type {
 
   @Override
   public TypeParam clone() {
-    return new TypeParam(name, isInterface, isOpen, constructors.clone(), memberFunctions.clone(), properties.clone(), supertypes, typeArguments, variance, isReified);
+    return new TypeParam(name, isInterface, isOpen, constructors.clone(), memberFunctions.clone(), properties.clone(), supertypes, typeArguments, variance, isReified, upperbound);
   }
 }

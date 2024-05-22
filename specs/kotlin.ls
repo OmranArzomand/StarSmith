@@ -164,14 +164,20 @@ class TypeParameter {
 
   syn type_param : Type;
 
-  type_param("${reified : OptionalReified}${mod : OptionalVarianceModifier}${ident : DefIdentifier}") {
+  type_param("${reified : OptionalReified}${mod : OptionalVarianceModifier}${ident : DefIdentifier}${upperbound : OptionalTypeUpperBound}") {
+    loc upperbound = (if upperbound.has_type upperbound.type (SymbolTable:getKotlinAnyType this.symbols_before));
+    loc supertypes = (if upperbound.has_type (CustomList:create upperbound.type) (CustomList:empty));
+
     reified.allow_reified = this.allow_reified;
 
     mod.allow_modifier = this.allow_modifier;
 
     ident.symbols_before = this.symbols_before;
 
-    this.type_param = (TypeParam:create ident.name mod.modifier reified.is_reified);
+    upperbound.symbols_before = this.symbols_before;
+    upperbound.required = false; 
+
+    this.type_param = (TypeParam:create ident.name mod.modifier reified.is_reified .upperbound .supertypes);
   }
 }
 
@@ -1276,6 +1282,7 @@ class OptionalFunctionTypeConstructor {
 class FunctionTypeConstructorList {
   grd valid;
   grd valid2;
+  grd valid3;
 
   inh symbols_before : SymbolTable;
   inh type_params : CustomList;
@@ -1288,6 +1295,7 @@ class FunctionTypeConstructorList {
     
     type.symbols_before = this.symbols_before;
     this.valid2 = (not (TypeParam:isReified type.type));
+    this.valid3 = (Type:assignable type.type (TypeParam:getUpperbound .type_param));
     
     this.type_arguments = (CustomList:create (Pair:create "inv" type.type));
   }
@@ -1480,6 +1488,7 @@ class TypeConstructorList {
   grd valid2;
   grd valid3;
   grd valid4;
+  grd valid5;
 
   inh symbols_before : SymbolTable;
   inh type_params : CustomList;
@@ -1497,6 +1506,7 @@ class TypeConstructorList {
     
     type.symbols_before = this.symbols_before;
     this.valid4 = (not (TypeParam:isReified type.type));
+    this.valid5 = (Type:assignable type.type (TypeParam:getUpperbound .type_param));
     
     this.type_arguments = (CustomList:create (Pair:create .actual_variance type.type));
   }
@@ -1528,6 +1538,30 @@ class VariableModifier {
 
   val("val") {
     this.is_mutable = false;
+  }
+}
+
+class OptionalTypeUpperBound {
+  grd valid;
+  inh symbols_before: SymbolTable;
+  inh required : boolean;
+
+  syn type : Type;
+  syn has_type : boolean;
+
+  @weight(4)
+  no_type_annotation("") {
+    this.valid = (not this.required);
+    this.type = (SymbolTable:getKotlinAnyType this.symbols_before);
+    this.has_type = false;
+  }
+
+  @weight(0)
+  type_annotation(": ${type: Type}") {
+    this.valid = true;
+    type.symbols_before = this.symbols_before;
+    this.type = type.type;
+    this.has_type = true;
   }
 }
 
