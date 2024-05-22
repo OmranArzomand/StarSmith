@@ -53,6 +53,14 @@ public class TypeParam extends Type {
     return typeParam.variance.equals("out");
   }
 
+  public static boolean isReified(Type type) {
+    if (!(type instanceof TypeParam)) {
+      return false;
+    }
+    TypeParam typeParam = (TypeParam) type;
+    return typeParam.isReified;
+  }
+
   @Override
   public TypeParam clone() {
     return new TypeParam(name, isInterface, isOpen, constructors.clone(), memberFunctions.clone(), properties.clone(), supertypes, typeArguments, variance, isReified);

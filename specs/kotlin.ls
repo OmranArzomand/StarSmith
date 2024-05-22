@@ -96,6 +96,7 @@ class ClassDeclaration {
 
     type_params.symbols_before = (SymbolTable:enterScope this.symbols_before);
     type_params.allow_modifier = true;
+    type_params.allow_reified = false;
 
     primary_constructor.symbols_before = type_params.symbols_after;
     primary_constructor.is_interface = class_or_interface.is_interface;
@@ -117,6 +118,7 @@ class ClassDeclaration {
 class OptionalTypeParamters {
   inh symbols_before : SymbolTable;
   inh allow_modifier : boolean;
+  inh allow_reified : boolean;
 
   syn type_params : CustomList;
   syn symbols_after : SymbolTable;
@@ -129,6 +131,7 @@ class OptionalTypeParamters {
   type_params ("<${list : TypeParameterList}> ") {
     list.symbols_before = this.symbols_before;
     list.allow_modifier = this.allow_modifier;
+    list.allow_reified = this.allow_reified;
 
     this.type_params = list.type_params;
     this.symbols_after = list.symbols_after;
@@ -139,6 +142,7 @@ class OptionalTypeParamters {
 class TypeParameterList {
   inh symbols_before : SymbolTable;
   inh allow_modifier : boolean;
+  inh allow_reified : boolean;
 
   syn type_params : CustomList;
   syn symbols_after : SymbolTable;
@@ -146,6 +150,7 @@ class TypeParameterList {
   one ("${type_param : TypeParameter}") {
     type_param.symbols_before = this.symbols_before;
     type_param.allow_modifier = this.allow_modifier;
+    type_param.allow_reified = this.allow_reified;
 
     this.type_params = (CustomList:create type_param.type_param);
     this.symbols_after = (SymbolTable:put this.symbols_before type_param.type_param);
@@ -155,15 +160,38 @@ class TypeParameterList {
 class TypeParameter {
   inh symbols_before : SymbolTable;
   inh allow_modifier : boolean;
+  inh allow_reified : boolean;
 
   syn type_param : Type;
 
-  type_param("${mod : OptionalVarianceModifier}${ident : DefIdentifier}") {
+  type_param("${reified : OptionalReified}${mod : OptionalVarianceModifier}${ident : DefIdentifier}") {
+    reified.allow_reified = this.allow_reified;
+
     mod.allow_modifier = this.allow_modifier;
 
     ident.symbols_before = this.symbols_before;
 
-    this.type_param = (TypeParam:create ident.name mod.modifier);
+    this.type_param = (TypeParam:create ident.name mod.modifier reified.is_reified);
+  }
+}
+
+class OptionalReified {
+  grd valid;
+
+  inh allow_reified : boolean;
+
+  syn is_reified : boolean;
+
+  no_reified("") {
+    this.valid = true;
+
+    this.is_reified = false;
+  }
+
+  reified("reified ") {
+    this.valid = this.allow_reified;
+
+    this.is_reified = true;
   }
 }
 
@@ -789,6 +817,7 @@ class FunctionDeclaration {
 
     type_params.symbols_before = (SymbolTable:enterScope this.symbols_before);
     type_params.allow_modifier = false;
+    type_params.allow_reified = false;
 
     name.symbols_before = this.symbols_before;
 
@@ -802,7 +831,7 @@ class FunctionDeclaration {
   }
 
   func_decl_expr
-      ("fun ${type_params : OptionalTypeParamters}${name : DefIdentifier}(${params : ParameterDeclarationList})${ret_type : OptionalTypeAnnotation} = ${expr: Expr}") {
+      ("${inline : OptionalInline}fun ${type_params : OptionalTypeParamters}${name : DefIdentifier}(${params : ParameterDeclarationList})${ret_type : OptionalTypeAnnotation} = ${expr: Expr}") {
     loc function_symbol = (if (== (CustomList:getSize type_params.type_params) 0)
       (Function:create name.name (if ret_type.has_type ret_type.type expr.type) params.params )
       (AbstractFunction:create name.name (if ret_type.has_type ret_type.type expr.type) params.params false type_params.type_params)
@@ -810,8 +839,11 @@ class FunctionDeclaration {
     this.valid = true;
     this.valid2 = (not (TypeParam:isContravariant (if ret_type.has_type ret_type.type (SymbolTable:getKotlinAnyType this.symbols_before))));
 
+    inline.in_interface = this.in_interface;
+
     type_params.symbols_before = (SymbolTable:enterScope this.symbols_before);
     type_params.allow_modifier = false;
+    type_params.allow_reified = inline.is_inline;
 
     name.symbols_before = this.symbols_before;
 
@@ -827,7 +859,7 @@ class FunctionDeclaration {
   }
 
   func_decl
-      ("fun ${type_params : OptionalTypeParamters}${name : DefIdentifier}(${params : ParameterDeclarationList})${ret_type : OptionalTypeAnnotation} {\+
+      ("${inline : OptionalInline}fun ${type_params : OptionalTypeParamters}${name : DefIdentifier}(${params : ParameterDeclarationList})${ret_type : OptionalTypeAnnotation} {\+
           ${body : FunctionBody}\-
         }\n") {
     loc actual_ret_type = (if ret_type.has_type ret_type.type (SymbolTable:getAsType this.symbols_before "Unit"));
@@ -838,8 +870,11 @@ class FunctionDeclaration {
     this.valid = true;
     this.valid2 = (not (TypeParam:isContravariant .actual_ret_type));
 
+    inline.in_interface = this.in_interface;
+
     type_params.symbols_before = (SymbolTable:enterScope this.symbols_before);
     type_params.allow_modifier = false;
+    type_params.allow_reified = inline.is_inline;
 
     name.symbols_before = this.symbols_before;
 
@@ -854,6 +889,26 @@ class FunctionDeclaration {
     this.symbol = .function_symbol;
   }
 
+}
+
+class OptionalInline {
+  grd valid;
+
+  inh in_interface : boolean;
+
+  syn is_inline : boolean;
+
+  no_inline("") {
+    this.valid = true;
+
+    this.is_inline = false;
+  }
+
+  inline("inline ") {
+    this.valid = (not this.in_interface);
+
+    this.is_inline = true;
+  }
 }
 
 @list(10)
@@ -1220,6 +1275,7 @@ class OptionalFunctionTypeConstructor {
 
 class FunctionTypeConstructorList {
   grd valid;
+  grd valid2;
 
   inh symbols_before : SymbolTable;
   inh type_params : CustomList;
@@ -1231,6 +1287,7 @@ class FunctionTypeConstructorList {
     this.valid = (== (CustomList:getSize this.type_params) 1);
     
     type.symbols_before = this.symbols_before;
+    this.valid2 = (not (TypeParam:isReified type.type));
     
     this.type_arguments = (CustomList:create (Pair:create "inv" type.type));
   }
@@ -1422,6 +1479,7 @@ class TypeConstructorList {
   grd valid;
   grd valid2;
   grd valid3;
+  grd valid4;
 
   inh symbols_before : SymbolTable;
   inh type_params : CustomList;
@@ -1438,6 +1496,7 @@ class TypeConstructorList {
     use_site_mod.allow_modifier = (TypeParam:isInvariant .type_param);
     
     type.symbols_before = this.symbols_before;
+    this.valid4 = (not (TypeParam:isReified type.type));
     
     this.type_arguments = (CustomList:create (Pair:create .actual_variance type.type));
   }
