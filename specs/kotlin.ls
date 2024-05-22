@@ -1443,6 +1443,13 @@ class TypeConstructorList {
   }
 }
 
+class TypeCheckType {
+  inh symbols_before : SymbolTable;
+  inh lhs_type : Type;
+
+  type (SymbolTable:visibleTypeCheckTypes this.symbols_before this.lhs_type) : Type {}
+}
+
 class UseTypeIdentifier {
   inh symbols_before : SymbolTable;
 
@@ -1542,6 +1549,20 @@ class Expr {
     this.type = member_function_call.type;
   }
 
+  type_check ("(${expr : Expr} ${op : TypeCheckOperator} ${type : TypeCheckType})") {
+    loc bool_type = (SymbolTable:getAsType this.symbols_before "Boolean");
+    this.valid = (Type:assignable .bool_type this.expected_type);
+    this.valid2 = true;
+
+    expr.symbols_before = this.symbols_before;
+    expr.expected_type = (SymbolTable:getAsType this.symbols_before "Any");
+
+    type.symbols_before = this.symbols_before;
+    type.lhs_type = expr.type;
+
+    this.type = .bool_type;
+  }
+
   arith_bin_op ("((${lhs : Expr}) ${op : ArithBinaryOperator} (${rhs : Expr}))") {
     loc int_type = (SymbolTable:getAsType this.symbols_before "Int");
     this.valid2 = true;
@@ -1607,6 +1628,8 @@ class Expr {
     this.type = (SymbolTable:getAsType this.symbols_before "Boolean");
   }
 }
+
+class TypeCheckOperator("is|!is");
 
 class ArithBinaryOperator("+|-|*|/|%");
 

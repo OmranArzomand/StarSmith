@@ -159,6 +159,33 @@ public final class SymbolTable {
     return flattened;
   }
 
+  public static final List<Type> visibleTypeCheckTypes(final SymbolTable symbolTable, Type lhsType) {
+    final List<Type> visibleTypes = new LinkedList<>();
+    final LinkedHashMap<String, Symbol> flattened = flatten(symbolTable);
+
+    for (final Symbol symbol : flattened.values()) {
+      if (!(symbol instanceof Type)) {
+        continue;
+      }
+      Type type = (Type) symbol;
+      if (type.typeArguments.items.size() != 0 || type instanceof AbstractType) {
+        continue;
+      }
+      if (type instanceof TypeParam) {
+        TypeParam typeParam = (TypeParam) type;
+        if (!typeParam.isReified) {
+          continue;
+        }
+        visibleTypes.add(type);
+      } else {
+        if (Type.assignable(type, lhsType) || Type.assignable(lhsType, type)) {
+          visibleTypes.add(type);
+        }
+      }
+    }
+    return visibleTypes;
+  }
+
   public static final List<Type> visibleTypes(final SymbolTable symbolTable, boolean allowClasses, boolean mustBeOpen, boolean allowAbstract) {
     final List<Type> visibleTypes = new LinkedList<>();
 
