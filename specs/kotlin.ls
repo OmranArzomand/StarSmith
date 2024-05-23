@@ -11,11 +11,15 @@ use Pair;
 use AbstractFunction;
 
 class Program {
-  prog("${decls : OptionalGlobalDeclarationList}
+  prog("${imports : Imports}${decls : OptionalGlobalDeclarationList}
   ${main : MainDeclaration}\n") {
     decls.symbols_before = (SymbolTable:init);
     main.symbols_before = decls.symbols_after;
   }
+}
+
+class Imports {
+  imports ("import java.util.Objects\n") {}
 }
 
 class OptionalGlobalDeclarationList {
@@ -527,7 +531,7 @@ class ClassMember {
     this.class_type_after = (Type:addProperty this.class_type_before decl.symbol);
   }
 
-  init ("init {\+${stmts : StmtList}\-}") {
+  init ("init {\+${stmts : Block}\-}") {
     this.valid = (not (Type:isInterface this.class_type_before));
     this.valid2 = true;
 
@@ -548,7 +552,7 @@ class ClassMember {
     this.class_type_after = (Type:addMemberFunction this.class_type_before func.symbol);
   }
 
-  secondary_constructor ("constructor (${params : ParameterDeclarationList})${delagation : OptionalConstructorDelegation} {\+${stmts : StmtList}\-}") {
+  secondary_constructor ("constructor (${params : ParameterDeclarationList})${delagation : OptionalConstructorDelegation} {\+${stmts : Block}\-}") {
     this.valid = (not (Function:paramsClash (Type:getConstructors this.class_type_before) params.params));
     this.valid2 = (not (Type:isInterface this.class_type_before));
 
@@ -975,36 +979,36 @@ class FunctionBody {
   inh expected_return_type : Type;
 
   body ("
-      ${stmts : OptionalStmtList}
+      ${stmts : Block}
       ${ret : OptionalReturnStatement}") {
 
     stmts.symbols_before = this.symbols_before;
-    stmts.expected_return_type = this.expected_return_type;
     
     ret.symbols_before = stmts.symbols_after;    
     ret.expected_return_type = this.expected_return_type;
   }
 }
 
-class OptionalStmtList {
-
+class Block {
   inh symbols_before : SymbolTable;
-  inh expected_return_type : Type;
 
-  syn symbols_after: SymbolTable;
+  syn symbols_after : SymbolTable;
 
-
-  no_stmts ("") {
-    this.symbols_after = this.symbols_before;
-  }
-
-  @weight(100)
-  stmts ("${stmts : StmtList}") {
+  block ("${stmts : StmtList}${hash : PrintHash}") {
     stmts.symbols_before = this.symbols_before;
+
+    hash.symbols_before = stmts.symbols_after;
 
     this.symbols_after = stmts.symbols_after;
   }
+}
 
+class PrintHash {
+  inh symbols_before : SymbolTable;
+
+  print_hash ("\n println(Objects.hash(${vars: InsertString}))") {
+    vars.string = (SymbolTable:getAllVariablesString this.symbols_before);
+  }
 }
 
 @list(100)
@@ -1075,6 +1079,7 @@ class Stmt {
     this.symbols_after = assign.symbols_after;
   }
 
+  @weight(0)
   print ("${print : Print}") {
     this.possible = true;
 

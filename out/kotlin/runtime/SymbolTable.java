@@ -379,6 +379,42 @@ public final class SymbolTable {
     return visibleMemberFunctions;
   }
 
+  public static final String getAllVariablesString(SymbolTable symbolTable) {
+    final List<String> variables = new ArrayList<>();
+    final LinkedHashMap<String, Symbol> flattened = flatten(symbolTable);
+    for (final Symbol symbol : flattened.values()) {
+      if (!(symbol instanceof Variable)) {
+        continue;
+      }
+      
+      Variable variable = (Variable) symbol;
+      if (!variable.isInitialised) {
+        continue;
+      }
+      variables.add(variable.name);
+      List<String> properties = getAllProperties(variable.type);
+      for (String property : properties) {
+        variables.add(variable.name + "." + property);
+      }
+    }
+    return String.join(", ", variables);
+  }
+
+  public static final List<String> getAllProperties(Type type) {
+    List<String> properties = new ArrayList<>();
+    for (Variable prop : type.properties.items) {
+      properties.add(prop.name);
+      List<String> subProperties = getAllProperties(prop.type);
+      for (String subProp : subProperties) {
+        properties.add(prop.name + "." + subProp);
+      }
+      for (Type supertype : type.supertypes.items) {
+        properties.addAll(getAllProperties(supertype));
+      }
+    }
+    return properties;
+  }
+
   public static final List<CustomList<Variable>> visibleConstructors(final Type type) {
     return type.constructors.items;
   }
